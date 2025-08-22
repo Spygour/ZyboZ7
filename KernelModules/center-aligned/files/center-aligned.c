@@ -44,8 +44,8 @@ module_param(myint, int, S_IRUGO);
 module_param(mystr, charp, S_IRUGO);
 
 
-#define AXI1_BASE   0x43c00000
-#define AXI1_SIZE   0x10000
+#define CENTER_ALIGNED_AXI_BASE   0x43c00000
+#define CENTER_ALIGNED_AXI_SIZE   0x10000
 
 #define PERIOD 0
 #define DUTY1 4
@@ -63,6 +63,13 @@ static irqreturn_t center_aligned_irq(int irq, void *lp)
 {
 	printk("center-aligned interrupt\n");
 	return IRQ_HANDLED;
+}
+
+static inline axi_write32_safe(void __iomem *base, uint32_t offset, uint32_t val)
+{
+	iowrite32(val, base + offset);
+	mb();
+	udelay(1);
 }
 
 static int center_aligned_thread(void *data);
@@ -93,19 +100,19 @@ static int __init center_aligned_init(void)
 
 static bool Pwm_Init(void)
 {
-	center_aligned_base = ioremap(AXI1_BASE, AXI1_SIZE);
+	center_aligned_base = ioremap(CENTER_ALIGNED_AXI_BASE, CENTER_ALIGNED_AXI_SIZE);
     if (!center_aligned_base) 
 	{
         pr_err("Failed to map AXI1\n");
         goto error;
     }
 
-	iowrite32(50000, center_aligned_base + PERIOD);
-	iowrite32(10000, center_aligned_base + DUTY1);
-	iowrite32(45000, center_aligned_base + DUTY2);
-	iowrite32(4000,  center_aligned_base + DUTY3);
+	axi_write32_safe(center_aligned_base, PERIOD, 50000);
+	axi_write32_safe(center_aligned_base, DUTY1, 10000);
+	axi_write32_safe(center_aligned_base, DUTY2, 5000);
+	axi_write32_safe(center_aligned_base, DUTY3, 40000);
 	/* Pwm starts here - control  = 1 */
-	iowrite32(1, center_aligned_base + CTRL);
+	axi_write32_safe(center_aligned_base, CTRL, 0x1);
 	
 	return true;
 
@@ -117,13 +124,13 @@ static int center_aligned_thread(void *data)
 {
 	while (!kthread_should_stop()) 
 	{
-		iowrite32(40000, center_aligned_base + DUTY1);
-		iowrite32(1000,  center_aligned_base + DUTY2);
-		iowrite32(10000, center_aligned_base + DUTY3);
+		axi_write32_safe(center_aligned_base, DUTY1, 35000);
+		axi_write32_safe(center_aligned_base, DUTY2, 25000);
+		axi_write32_safe(center_aligned_base, DUTY3, 2000);
 		msleep(100);
-		iowrite32(10000, center_aligned_base + DUTY1);
-		iowrite32(45000, center_aligned_base + DUTY2);
-		iowrite32(4000,  center_aligned_base + DUTY3);
+		axi_write32_safe(center_aligned_base, DUTY1, 10000);
+		axi_write32_safe(center_aligned_base, DUTY2, 5000);
+		axi_write32_safe(center_aligned_base, DUTY3, 40000);
 		msleep(100);
 	}
 	return 0;
@@ -134,7 +141,7 @@ static int center_aligned_thread(void *data)
 static void __exit center_aligned_exit(void)
 {
 	kthread_stop(center_aligned_task);
-	iowrite32(0, center_aligned_base + CTRL);
+	axi_write32_safe(center_aligned_base, CTRL, 0x0);
 	iounmap(center_aligned_base);
 	printk(KERN_ALERT "Goodbye module world.\n");
 }

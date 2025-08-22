@@ -29,15 +29,15 @@ module ThreePhasePwm (
 
     always @(posedge Clk) begin
         if (!Reset_n) begin
-            count  <= 1'b0;
-            CM0_0  <= 1'b0;
-            CM0_1  <= 1'b0;
-            CM0_2  <= 1'b0;
-            CM1_0  <= 1'b0;
-            CM1_1  <= 1'b0;
-            CM1_2  <= 1'b0;
+            count  <= 32'd0;
+            CM0_0  <= 32'd0;
+            CM0_1  <= 32'd0;
+            CM0_2  <= 32'd0;
+            CM1_0  <= 32'd0;
+            CM1_1  <= 32'd0;
+            CM1_2  <= 32'd0;
         end else if (count >= Period) begin
-            count  <= 1'b0;
+            count  <= 32'b0;
             CM0_0  <= SR0_0; 
             CM0_1  <= SR0_1; 
             CM0_2  <= SR0_2;
@@ -45,7 +45,7 @@ module ThreePhasePwm (
             CM1_1  <= SR1_1; 
             CM1_2  <= SR1_2;
         end else begin
-            count <= count + 1;
+            count <= count + 1'b1;
         end
     end
 
