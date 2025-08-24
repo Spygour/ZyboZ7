@@ -65,7 +65,7 @@ static irqreturn_t center_aligned_irq(int irq, void *lp)
 	return IRQ_HANDLED;
 }
 
-static inline axi_write32_safe(void __iomem *base, uint32_t offset, uint32_t val)
+static inline void axi_write32_safe(void __iomem *base, uint32_t offset, uint32_t val)
 {
 	iowrite32(val, base + offset);
 	mb();
