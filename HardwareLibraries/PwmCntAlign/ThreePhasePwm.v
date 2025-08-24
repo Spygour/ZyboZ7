@@ -5,7 +5,10 @@ module ThreePhasePwm (
     input  wire [31:0] Duty_0, Duty_1, Duty_2,
     input  wire        Enable,
     input  wire        CenterAlligned,
-    output reg  [2:0]  PWM
+    output reg  [2:0]  PWM,
+    input  wire        Interrupt_Clear,
+    input  wire        Interrupt_Enable,
+    output reg         Interrupt_Active
 );
 
     reg [31:0] count;
@@ -14,6 +17,7 @@ module ThreePhasePwm (
     wire [31:0] Duty_0_internal, Duty_1_internal, Duty_2_internal;
     wire [31:0] SR0_0, SR0_1, SR0_2;
     wire [31:0] SR1_0, SR1_1, SR1_2;
+    
 
     assign Duty_0_internal  = (Duty_0 < Period) ? Duty_0 : Period;
     assign Duty_1_internal  = (Duty_1 < Period) ? Duty_1 : Period;
@@ -44,7 +48,11 @@ module ThreePhasePwm (
             CM1_0  <= SR1_0; 
             CM1_1  <= SR1_1; 
             CM1_2  <= SR1_2;
+            Interrupt_Active <= Interrupt_Enable;
         end else begin
+            if (Interrupt_Clear) begin
+                Interrupt_Active <= 1'b0;
+            end
             count <= count + 1'b1;
         end
     end

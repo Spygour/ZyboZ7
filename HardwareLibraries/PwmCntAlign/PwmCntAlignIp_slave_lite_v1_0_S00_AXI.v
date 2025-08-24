@@ -16,6 +16,8 @@
 	(
 		// Users to add ports here
 		output wire [2:0] Pwm_Out,
+
+		output wire Interrupt_Port,
 		// User ports ends
 		// Do not modify the ports beyond this line
 
@@ -125,6 +127,12 @@
 	 //state machine varibles 
 	 reg [1:0] state_write;
 	 reg [1:0] state_read;
+
+	 reg 			Interrupt_Active_internal;
+	 reg      Interrupt_Clear_reg;
+	 reg 			Interrupt_Clear_reg_ff;
+	 reg			Interrupt_Clear_reg_ff2;
+	 reg 			Interrupt_Clear_Actl;
 	 //State machine local parameters
 	 localparam Idle = 2'b00,Raddr = 2'b10,Rdata = 2'b11 ,Waddr = 2'b10,Wdata = 2'b11;
 	// Implement Write state machine
@@ -254,8 +262,19 @@
 	              if ( S_AXI_WSTRB[byte_index] == 1 ) begin
 	                // Respective byte enables are asserted as per write strobes 
 	                // Slave register 4
-	                slv_reg4[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
-	              end  
+									if (byte_index == 0) begin
+										slv_reg4[2:0] <= S_AXI_WDATA[2:0];
+                	// Bit 3: write-1-to-clear Interrupt
+										slv_reg4[3] <= 1'b0;
+                		if (S_AXI_WDATA[3]) begin
+											Interrupt_Clear_reg <= 1'b1;
+										end
+										slv_reg4[7:4] <= S_AXI_WDATA[7:4];
+									end else begin
+                		// other bytes if needed
+                		slv_reg4[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
+									end
+								end
 	          3'h5:
 	            for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
 	              if ( S_AXI_WSTRB[byte_index] == 1 ) begin
@@ -286,9 +305,12 @@
 	                      slv_reg5 <= slv_reg5;
 	                      slv_reg6 <= slv_reg6;
 	                      slv_reg7 <= slv_reg7;
+												Interrupt_Clear <= 1'b0;
 	                    end
 	        endcase
-	      end
+	      end else begin
+					Interrupt_Clear_reg <= 1'b0;
+				end
 	  end
 	end    
 
@@ -343,19 +365,35 @@
 	  assign S_AXI_RDATA = (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h0) ? slv_reg0 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h1) ? slv_reg1 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h2) ? slv_reg2 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h3) ? slv_reg3 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h4) ? slv_reg4 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h5) ? slv_reg5 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h6) ? slv_reg6 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h7) ? slv_reg7 : 0; 
 	// Add user logic here
     // Example: instantiating your module
-	ThreePhasePwm MyPwm 
-	(
-	    .Clk   (S_AXI_ACLK),      // connect to AXI clock if needed
-	    .Reset_n(S_AXI_ARESETN),   // reset
-		.Period (slv_reg0),
-	    .Duty_0 (slv_reg1),
-	    .Duty_1 (slv_reg2),
-		.Duty_2 (slv_reg3), // your output
-		.Enable (slv_reg4[0]),
-		.CenterAlligned (slv_reg4[1]),
-		.PWM (Pwm_Out)
-	);
 
-	// User logic ends
+		always @(posedge S_AXI_ACLK) begin
+			if (!S_AXI_ARESETN) begin
+				Interrupt_Clear_reg_ff <= 1'b0;
+				Interrupt_Clear_reg_ff2 <= 1'b0;
+				Interrupt_Clear_Actl <=  1'b0;
+			end else begin
+				Interrupt_Clear_reg_ff <= Interrupt_Clear_reg;
+				Interrupt_Clear_reg_ff2 <= Interrupt_Clear_reg_ff;
+				Interrupt_Clear_Actl <= Interrupt_Clear_reg | Interrupt_Clear_reg_ff | Interrupt_Clear_reg_ff2;
+			end
+		end 
+
+		ThreePhasePwm MyPwm 
+		(
+		  .Clk   (S_AXI_ACLK),      // connect to AXI clock if needed
+		  .Reset_n(S_AXI_ARESETN),   // reset
+			.Period (slv_reg0),
+		  .Duty_0 (slv_reg1),
+		  .Duty_1 (slv_reg2),
+			.Duty_2 (slv_reg3), // your output
+			.Enable (slv_reg4[0]),
+			.CenterAlligned (slv_reg4[1]),
+			.Interrupt_Enable(slv_reg4[2]),
+			.Interrupt_Active(Interrupt_Port),
+			.Interrupt_Clear(Interrupt_Clear_Actl),
+			.PWM (Pwm_Out)
+		);
+
+		// User logic ends
 
 	endmodule
