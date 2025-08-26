@@ -74,7 +74,7 @@
 		.S_AXI_RVALID(s00_axi_rvalid),
 		.S_AXI_RREADY(s00_axi_rready),
 		.Pwm_Out(Pwm_Internal),
-		.Interrupt_OutPort(Interrupt_Internal)
+		.Interrupt_Port(Interrupt_Internal)
 	);
 
 	// Add user logic here

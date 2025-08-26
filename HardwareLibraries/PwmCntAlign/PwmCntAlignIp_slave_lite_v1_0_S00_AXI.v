@@ -127,8 +127,6 @@
 	 //state machine varibles 
 	 reg [1:0] state_write;
 	 reg [1:0] state_read;
-
-	 reg 			Interrupt_Active_internal;
 	 reg      Interrupt_Clear_reg;
 	 reg 			Interrupt_Clear_reg_ff;
 	 reg			Interrupt_Clear_reg_ff2;
@@ -305,7 +303,6 @@
 	                      slv_reg5 <= slv_reg5;
 	                      slv_reg6 <= slv_reg6;
 	                      slv_reg7 <= slv_reg7;
-												Interrupt_Clear <= 1'b0;
 	                    end
 	        endcase
 	      end else begin
