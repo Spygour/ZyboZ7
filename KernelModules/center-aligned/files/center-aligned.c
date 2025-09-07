@@ -25,6 +25,7 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/types.h>
+#include <linux/interrupt.h>
 
 /* Standard module information, edit as appropriate */
 MODULE_LICENSE("GPL");
@@ -52,16 +53,64 @@ module_param(mystr, charp, S_IRUGO);
 #define DUTY2 8
 #define DUTY3 12
 #define CTRL 16
+#define DEADTIME 20
 
-static void __iomem *center_aligned_base;
+#define CENTER_ALLIGNED_INTERRUPT_ID 59
 
-static struct task_struct *center_aligned_task;
+#define PWM_ENABLE 0
+#define PWM_CENTER_ALIGNED 1
+#define PWM_INTERRUPT_ENABLE 2
+#define PWM_INTERRUPT_CLEAR 3
+#define PWM_DEADTIME_ENABLE 4
+
+typedef enum 
+{
+	FIRST_PHASE,
+	SECOND_PHASE
+
+}PWM_STATE;
+
+static PWM_STATE CenterAligned_State = FIRST_PHASE;
+
+static uint32_t CenterAligned_CtrReg = 0; 
+
+static void __iomem *CenterAligned_base;
+
+static struct task_struct *CenterAligned_task;
 
 
 
-static irqreturn_t center_aligned_irq(int irq, void *lp)
+
+/* Main Isr that can be used to update the values of the PWMS */
+static irqreturn_t CenterAligned_Irq(int irq, void *lp)
 {
 	printk("center-aligned interrupt\n");
+	switch(CenterAligned_State)
+	{
+		case FIRST_PHASE:
+		{
+			iowrite32(35000, CenterAligned_base + DUTY1);
+			iowrite32(25000, CenterAligned_base + DUTY2);
+			iowrite32(2000, CenterAligned_base + DUTY3);
+			CenterAligned_State = SECOND_PHASE;
+			break;
+		}
+
+		case SECOND_PHASE:
+		{
+			iowrite32(10000, CenterAligned_base + DUTY1);
+			iowrite32(5000, CenterAligned_base + DUTY2);
+			iowrite32(40000, CenterAligned_base + DUTY3);
+			CenterAligned_State = FIRST_PHASE;
+			break;
+		}
+
+		default:
+			CenterAligned_State = FIRST_PHASE;
+			break;
+	}
+	/* Clear the interrupt flag , restart the interrupt */
+	iowrite32(CenterAligned_CtrReg | (1 << PWM_INTERRUPT_CLEAR), CenterAligned_base + CTRL);
 	return IRQ_HANDLED;
 }
 
@@ -77,7 +126,7 @@ static int center_aligned_thread(void *data);
 static bool Pwm_Init(void);
 
 
-static int __init center_aligned_init(void)
+static int __init CenterAligned_Init(void)
 {
 	printk("<1>Hello module world.\n");
 	printk("<1>Module parameters were (0x%08x) and \"%s\"\n", myint,
@@ -85,34 +134,49 @@ static int __init center_aligned_init(void)
 	pr_info("AXI test module loaded\n");
 
     // Map AXI1
-
+	int ret;
+	ret = request_irq(CENTER_ALLIGNED_INTERRUPT_ID, CenterAligned_Irq, 0, "my_center_alligned_isr", NULL);
+	if (ret)
+	{
+		pr_err("Interrupt init failed with error code %d\n", ret);
+		goto irq_failed;
+	}
 	bool flag = Pwm_Init();
 	if (!flag) 
 	{
         pr_err("Failed to write dutycycles mothefucka\n");
-        return -ENOMEM;
+        goto  pwm_failed;
     }
 
-	center_aligned_task = kthread_run(center_aligned_thread, NULL, "multiple_pwmthread");
+	//CenterAligned_task = kthread_run(center_aligned_thread, NULL, "multiple_pwmthread");
 
 	return 0;
+
+	irq_failed:
+	return ret;
+
+	pwm_failed:
+	return -ENOMEM;
+
 }
 
 static bool Pwm_Init(void)
 {
-	center_aligned_base = ioremap(CENTER_ALIGNED_AXI_BASE, CENTER_ALIGNED_AXI_SIZE);
-    if (!center_aligned_base) 
+	CenterAligned_base = ioremap(CENTER_ALIGNED_AXI_BASE, CENTER_ALIGNED_AXI_SIZE);
+    if (!CenterAligned_base) 
 	{
         pr_err("Failed to map AXI1\n");
         goto error;
     }
 
-	axi_write32_safe(center_aligned_base, PERIOD, 50000);
-	axi_write32_safe(center_aligned_base, DUTY1, 10000);
-	axi_write32_safe(center_aligned_base, DUTY2, 5000);
-	axi_write32_safe(center_aligned_base, DUTY3, 40000);
-	/* Pwm starts here - control  = 1 */
-	axi_write32_safe(center_aligned_base, CTRL, 0x1);
+	axi_write32_safe(CenterAligned_base, PERIOD, 50000);
+	axi_write32_safe(CenterAligned_base, DUTY1, 10000);
+	axi_write32_safe(CenterAligned_base, DUTY2, 5000);
+	axi_write32_safe(CenterAligned_base, DUTY3, 40000);
+	/* Pwm starts here - control  = 1 | 2 | 4 */
+	axi_write32_safe(CenterAligned_base, CTRL, (1 << PWM_ENABLE) | (1 << PWM_CENTER_ALIGNED) | (1 << PWM_INTERRUPT_ENABLE));
+
+	CenterAligned_CtrReg = (uint32_t)ioread32(CenterAligned_base + CTRL);
 	
 	return true;
 
@@ -120,17 +184,19 @@ static bool Pwm_Init(void)
 	return false;
 }
 
+
+/* This is a main task that can be used for different reasons */
 static int center_aligned_thread(void *data)
 {
 	while (!kthread_should_stop()) 
 	{
-		axi_write32_safe(center_aligned_base, DUTY1, 35000);
-		axi_write32_safe(center_aligned_base, DUTY2, 25000);
-		axi_write32_safe(center_aligned_base, DUTY3, 2000);
+		axi_write32_safe(CenterAligned_base, DUTY1, 35000);
+		axi_write32_safe(CenterAligned_base, DUTY2, 25000);
+		axi_write32_safe(CenterAligned_base, DUTY3, 2000);
 		msleep(100);
-		axi_write32_safe(center_aligned_base, DUTY1, 10000);
-		axi_write32_safe(center_aligned_base, DUTY2, 5000);
-		axi_write32_safe(center_aligned_base, DUTY3, 40000);
+		axi_write32_safe(CenterAligned_base, DUTY1, 10000);
+		axi_write32_safe(CenterAligned_base, DUTY2, 5000);
+		axi_write32_safe(CenterAligned_base, DUTY3, 40000);
 		msleep(100);
 	}
 	return 0;
@@ -138,13 +204,14 @@ static int center_aligned_thread(void *data)
 
 
 
-static void __exit center_aligned_exit(void)
+static void __exit CenterAligned_Exit(void)
 {
-	kthread_stop(center_aligned_task);
-	axi_write32_safe(center_aligned_base, CTRL, 0x0);
-	iounmap(center_aligned_base);
+	free_irq(CENTER_ALLIGNED_INTERRUPT_ID, NULL);
+  //kthread_stop(CenterAligned_task);
+	axi_write32_safe(CenterAligned_base, CTRL, 0x0);
+	iounmap(CenterAligned_base);
 	printk(KERN_ALERT "Goodbye module world.\n");
 }
 
-module_init(center_aligned_init);
-module_exit(center_aligned_exit);
+module_init(CenterAligned_Init);
+module_exit(CenterAligned_Exit);

@@ -17,6 +17,8 @@
 		// Users to add ports here
 		output wire [2:0] Pwm_Out,
 
+		output wire [2:0] Pwm_Out_LSS,
+
 		output wire Interrupt_Port,
 		// User ports ends
 		// Do not modify the ports beyond this line
@@ -386,9 +388,12 @@
 			.Enable (slv_reg4[0]),
 			.CenterAlligned (slv_reg4[1]),
 			.Interrupt_Enable(slv_reg4[2]),
+			.DeadTime_En(slv_reg4[4]),
+			.DeadTime(slv_reg5),
 			.Interrupt_Active(Interrupt_Port),
 			.Interrupt_Clear(Interrupt_Clear_Actl),
-			.PWM (Pwm_Out)
+			.PWM (Pwm_Out),
+			.PWM_LSS(Pwm_Out_LSS)
 		);
 
 		// User logic ends

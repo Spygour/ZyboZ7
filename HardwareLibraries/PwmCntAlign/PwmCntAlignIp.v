@@ -17,6 +17,8 @@
 		// Users to add ports here
     output reg [2:0] Pwm_OutPort,
 
+		output reg [2:0] Pwm_OutPort_LSS,
+
 		output reg 			Interrupt_OutPort,
 		// User ports ends
 		// Do not modify the ports beyond this line
@@ -47,6 +49,7 @@
 	);
 // Instantiation of Axi Bus Interface S00_AXI
     wire [2:0] Pwm_Internal;
+		wire [2:0] Pwm_Internal_LSS;
 		wire 			Interrupt_Internal;
 	PwmCntAlignIp_slave_lite_v1_0_S00_AXI # ( 
 		.C_S_AXI_DATA_WIDTH(C_S00_AXI_DATA_WIDTH),
@@ -74,6 +77,7 @@
 		.S_AXI_RVALID(s00_axi_rvalid),
 		.S_AXI_RREADY(s00_axi_rready),
 		.Pwm_Out(Pwm_Internal),
+		.Pwm_Out_LSS(Pwm_Internal_LSS),
 		.Interrupt_Port(Interrupt_Internal)
 	);
 
@@ -81,9 +85,11 @@
 	always @(posedge s00_axi_aclk) begin
 	   if (!s00_axi_aresetn) begin
 	       Pwm_OutPort <= 3'b000;
+				 Pwm_OutPort_LSS <= 3'b000;
 				 Interrupt_OutPort <= 1'b0; 
 	   end else begin
 	       Pwm_OutPort <= Pwm_Internal;
+				 Pwm_OutPort_LSS <= Pwm_Internal_LSS
 				 Interrupt_OutPort <= Interrupt_Internal;
 	   end
 	end
