@@ -55,7 +55,7 @@ module_param(mystr, charp, S_IRUGO);
 #define CTRL 16
 #define DEADTIME 20
 
-#define CENTER_ALLIGNED_INTERRUPT_ID 59
+#define CENTER_ALLIGNED_INTERRUPT_ID 62
 
 #define PWM_ENABLE 0
 #define PWM_CENTER_ALIGNED 1
@@ -84,7 +84,6 @@ static struct task_struct *CenterAligned_task;
 /* Main Isr that can be used to update the values of the PWMS */
 static irqreturn_t CenterAligned_Irq(int irq, void *lp)
 {
-	printk("center-aligned interrupt\n");
 	switch(CenterAligned_State)
 	{
 		case FIRST_PHASE:

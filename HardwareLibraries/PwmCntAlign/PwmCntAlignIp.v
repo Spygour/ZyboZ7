@@ -85,12 +85,12 @@
 	always @(posedge s00_axi_aclk) begin
 	   if (!s00_axi_aresetn) begin
 	       Pwm_OutPort <= 3'b000;
-				 Pwm_OutPort_LSS <= 3'b000;
-				 Interrupt_OutPort <= 1'b0; 
+	       Pwm_OutPort_LSS <= 3'b000;
+		   Interrupt_OutPort <= 1'b0; 
 	   end else begin
 	       Pwm_OutPort <= Pwm_Internal;
-				 Pwm_OutPort_LSS <= Pwm_Internal_LSS
-				 Interrupt_OutPort <= Interrupt_Internal;
+		   Pwm_OutPort_LSS <= Pwm_Internal_LSS;
+		   Interrupt_OutPort <= Interrupt_Internal;
 	   end
 	end
 	// User logic ends

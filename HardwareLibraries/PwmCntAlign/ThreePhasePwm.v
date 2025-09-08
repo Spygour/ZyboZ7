@@ -15,20 +15,28 @@ module ThreePhasePwm (
 );
 
     reg [31:0] count;
+
+    /* Compare registers */
     reg [31:0] CM0_0, CM0_1, CM0_2;
     reg [31:0] CM1_0, CM1_1, CM1_2;
-
     reg [31:0] CM0_0_LSS, CM0_1_LSS ,CM0_2_LSS;
     reg [31:0] CM1_0_LSS, CM1_1_LSS, CM1_2_LSS;
+
+    /* Internal Duty Values */
     wire [31:0] Duty_0_internal, Duty_1_internal, Duty_2_internal;
+
+    /* Shadow registers */
+    wire [31:0] SR0_0, SR0_1, SR0_2;
+    wire [31:0] SR1_0, SR1_1, SR1_2;
     wire [31:0] SR0_0, SR0_1, SR0_2;
     wire [31:0] SR1_0, SR1_1, SR1_2;
     
-
+    /* First calculate the accepted dutycycle */
     assign Duty_0_internal  = (Duty_0 < Period) ? Duty_0 : Period;
     assign Duty_1_internal  = (Duty_1 < Period) ? Duty_1 : Period;
     assign Duty_2_internal  = (Duty_2 < Period) ? Duty_2 : Period;
 
+    /* Calculate the shadow registers of dutycycle and period respectivelly */
     assign SR0_0 = (CenterAlligned == 1'b1) ? ((Period >> 1'b1) - (Duty_0_internal >> 1'b1)) : 1'b0;
     assign SR0_1 = (CenterAlligned == 1'b1) ? ((Period >> 1'b1) - (Duty_1_internal >> 1'b1)) : 1'b0;
     assign SR0_2 = (CenterAlligned == 1'b1) ? ((Period >> 1'b1) - (Duty_2_internal >> 1'b1)) : 1'b0;
@@ -36,6 +44,15 @@ module ThreePhasePwm (
     assign SR1_0 = (CenterAlligned == 1'b1) ? ((Period >> 1'b1) + (Duty_0_internal >> 1'b1)) : Duty_0_internal;
     assign SR1_1 = (CenterAlligned == 1'b1) ? ((Period >> 1'b1) + (Duty_1_internal >> 1'b1)) : Duty_1_internal;
     assign SR1_2 = (CenterAlligned == 1'b1) ? ((Period >> 1'b1) + (Duty_2_internal >> 1'b1)) : Duty_2_internal;
+
+    /* Calculate the shadow registers of dutycycle and period respectivelly for low side pwms (if deadtime) */
+    assign SR0_0_LSS = (Duty_0 < DeadTime) ? (Period + Duty_0 - DeadTime)  : (Duty_0 - DeadTime);
+    assign SR0_1_LSS = (Duty_1 < DeadTime) ? (Period + Duty_1 - DeadTime)  : (Duty_1 - DeadTime);
+    assign SR0_2_LSS = (Duty_2 < DeadTime) ? (Period + Duty_2 - DeadTime)  : (Duty_2 - DeadTime);
+
+    assign SR1_0_LSS = ((Duty_0 + DeadTime) > Period) ?  (Duty_0 + DeadTime - Period) : (Duty_0 + DeadTime);
+    assign SR1_1_LSS = ((Duty_1 + DeadTime) > Period) ?  (Duty_1 + DeadTime - Period) : (Duty_1 + DeadTime);
+    assign SR1_2_LSS = ((Duty_2 + DeadTime) > Period) ?  (Duty_2 + DeadTime - Period) : (Duty_2 + DeadTime);
 
     always @(posedge Clk) begin
         if (!Reset_n) begin
@@ -63,12 +80,12 @@ module ThreePhasePwm (
             CM1_1  <= SR1_1; 
             CM1_2  <= SR1_2;
             if (DeadTime_En) begin
-                CM0_0_LSS  <= (SR0_0 < DeadTime) ? (Period + SR0_0 - DeadTime)  : (SR0_0 - DeadTime) ;
-                CM0_1_LSS  <= (SR0_1 < DeadTime) ? (Period + SR0_1 - DeadTime)  : (SR0_1 - DeadTime) ;
-                CM0_2_LSS  <= (SR0_1 < DeadTime) ? (Period + SR0_2 - DeadTime)  : (SR0_2 - DeadTime) ;
-                CM1_0_LSS  <= ((SR1_0 + DeadTime) > Period) ?  (SR1_0 + DeadTime - Period) : (SR1_0 + DeadTime);
-                CM1_1_LSS  <= ((SR1_1 + DeadTime) > Period) ?  (SR1_1 + DeadTime - Period) : (SR1_1 + DeadTime);
-                CM1_2_LSS  <= ((SR1_2 + DeadTime) > Period) ?  (SR1_2 + DeadTime - Period) : (SR1_2 + DeadTime);
+                CM0_0_LSS  <= SR0_0_LLS;
+                CM0_1_LSS  <= SR0_1_LLS;
+                CM0_2_LSS  <= SR0_2_LLS;
+                CM1_0_LSS  <= SR1_0_LLS;
+                CM1_1_LSS  <= SR1_1_LLS;
+                CM1_2_LSS  <= SR1_2_LLS;
             end
             Interrupt_Active <= Interrupt_Enable;
         end else begin

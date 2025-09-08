@@ -382,8 +382,8 @@
 		  .Clk   (S_AXI_ACLK),      // connect to AXI clock if needed
 		  .Reset_n(S_AXI_ARESETN),   // reset
 			.Period (slv_reg0),
-		  .Duty_0 (slv_reg1),
-		  .Duty_1 (slv_reg2),
+		  	.Duty_0 (slv_reg1),
+		  	.Duty_1 (slv_reg2),
 			.Duty_2 (slv_reg3), // your output
 			.Enable (slv_reg4[0]),
 			.CenterAlligned (slv_reg4[1]),
