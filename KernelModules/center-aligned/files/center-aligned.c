@@ -26,6 +26,8 @@
 #include <linux/delay.h>
 #include <linux/types.h>
 #include <linux/interrupt.h>
+#include <linux/of.h>     
+#include <linux/of_irq.h> 
 
 /* Standard module information, edit as appropriate */
 MODULE_LICENSE("GPL");
@@ -124,6 +126,30 @@ static int center_aligned_thread(void *data);
 
 static bool Pwm_Init(void);
 
+static inline int InterruptCheck(void)
+{
+	struct device_node *np;
+	int irq;
+
+	np = of_find_compatible_node(NULL, NULL, "xlnx,PwmCntAlignIp-1.0"); /* Please modify this */
+	if (!np) {
+	    pr_err("PWM node not found in device tree\n");
+	    return -ENODEV;
+	}
+
+	irq = irq_of_parse_and_map(np, 0);
+	if (irq <= 0) {
+	    pr_err("PWM interrupt not mapped\n");
+	    of_node_put(np);
+	    return -EINVAL;
+	}
+
+	pr_info("Mapped PWM IRQ = %d\n", irq);
+	of_node_put(np);
+
+	return 0;
+}
+
 
 static int __init CenterAligned_Init(void)
 {
@@ -134,12 +160,21 @@ static int __init CenterAligned_Init(void)
 
     // Map AXI1
 	int ret;
+
+	ret = InterruptCheck();
+	if (ret)
+	{
+		pr_err("Interrupt is not mapped in the component with code %d\n", ret);
+		goto irq_failed;
+	}
+
 	ret = request_irq(CENTER_ALLIGNED_INTERRUPT_ID, CenterAligned_Irq, 0, "my_center_alligned_isr", NULL);
 	if (ret)
 	{
 		pr_err("Interrupt init failed with error code %d\n", ret);
 		goto irq_failed;
 	}
+	
 	bool flag = Pwm_Init();
 	if (!flag) 
 	{
