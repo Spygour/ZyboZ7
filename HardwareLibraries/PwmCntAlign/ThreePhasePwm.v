@@ -28,8 +28,8 @@ module ThreePhasePwm (
     /* Shadow registers */
     wire [31:0] SR0_0, SR0_1, SR0_2;
     wire [31:0] SR1_0, SR1_1, SR1_2;
-    wire [31:0] SR0_0, SR0_1, SR0_2;
-    wire [31:0] SR1_0, SR1_1, SR1_2;
+    wire [31:0] SR0_0_LSS, SR0_1_LSS, SR0_2_LSS;
+    wire [31:0] SR1_0_LSS, SR1_1_LSS, SR1_2_LSS;
     wire Interrupt_Wire;
     
     /* First calculate the accepted dutycycle */
@@ -83,12 +83,12 @@ module ThreePhasePwm (
             CM1_1  <= SR1_1; 
             CM1_2  <= SR1_2;
             if (DeadTime_En) begin
-                CM0_0_LSS  <= SR0_0_LLS;
-                CM0_1_LSS  <= SR0_1_LLS;
-                CM0_2_LSS  <= SR0_2_LLS;
-                CM1_0_LSS  <= SR1_0_LLS;
-                CM1_1_LSS  <= SR1_1_LLS;
-                CM1_2_LSS  <= SR1_2_LLS;
+                CM0_0_LSS  <= SR0_0_LSS;
+                CM0_1_LSS  <= SR0_1_LSS;
+                CM0_2_LSS  <= SR0_2_LSS;
+                CM1_0_LSS  <= SR1_0_LSS;
+                CM1_1_LSS  <= SR1_1_LSS;
+                CM1_2_LSS  <= SR1_2_LSS;
             end
             Interrupt_Active <= Interrupt_Wire;
         end else begin

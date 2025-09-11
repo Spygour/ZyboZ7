@@ -130,7 +130,7 @@
 	 reg [1:0] state_write;
 	 reg [1:0] state_read;
 	 reg      Interrupt_Clear_reg;
-	 reg 			Interrupt_Clear_reg_cnt;
+	 reg [2:0]	Interrupt_Clear_cnt;
 	 //State machine local parameters
 	 localparam Idle = 2'b00,Raddr = 2'b10,Rdata = 2'b11 ,Waddr = 2'b10,Wdata = 2'b11;
 	// Implement Write state machine
@@ -222,6 +222,7 @@
 	      slv_reg5 <= 0;
 	      slv_reg6 <= 0;
 	      slv_reg7 <= 0;
+	      Interrupt_Clear_cnt <= 3'b000;
 	    end 
 	  else begin
 	    if (S_AXI_WVALID)
@@ -260,20 +261,20 @@
 	              if ( S_AXI_WSTRB[byte_index] == 1 ) begin
 	                // Respective byte enables are asserted as per write strobes 
 	                // Slave register 4
-									if (byte_index == 0) begin
-										slv_reg4[2:0] <= S_AXI_WDATA[2:0];
-                	// Bit 3: write-1-to-clear Interrupt
-										slv_reg4[3] <= 1'b0;
-                		if (S_AXI_WDATA[3]) begin
-											Interrupt_Clear_reg <= 1'b1;
-											Interrupt_Clear_cnt <= 3'b000;
-										end
-										slv_reg4[7:4] <= S_AXI_WDATA[7:4];
-									end else begin
+					if (byte_index == 0) begin
+					   slv_reg4[2:0] <= S_AXI_WDATA[2:0];
+                	   // Bit 3: write-1-to-clear Interrupt
+					   slv_reg4[3] <= 1'b0;
+                	   if (S_AXI_WDATA[3]) begin
+						  Interrupt_Clear_reg <= 1'b1;
+						  Interrupt_Clear_cnt <= 3'b000;
+					   end
+					   slv_reg4[7:4] <= S_AXI_WDATA[7:4];
+					end else begin
                 		// other bytes if needed
                 		slv_reg4[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
-									end
-								end
+					end
+				   end
 	          3'h5:
 	            for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
 	              if ( S_AXI_WSTRB[byte_index] == 1 ) begin
@@ -310,12 +311,13 @@
 					if (Interrupt_Clear_cnt == 3'b111) begin
 						Interrupt_Clear_cnt <= 3'b000;
 						Interrupt_Clear_reg <= 1'b0;
-					else
+					end else begin
 						Interrupt_Clear_cnt <= Interrupt_Clear_cnt + 3'b001;
-				end
+					end
 			end
-		end 
-	end    
+		end
+	end
+    
 
 	// Implement read state machine
 	  always @(posedge S_AXI_ACLK)                                       
