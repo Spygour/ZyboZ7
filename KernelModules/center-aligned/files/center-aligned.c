@@ -158,7 +158,7 @@ static int __init CenterAligned_Init(void)
 	       mystr);
 	pr_info("AXI test module loaded\n");
 
-    // Map AXI1
+  // Map AXI1
 	int ret;
 
 	ret = InterruptCheck();
@@ -168,7 +168,7 @@ static int __init CenterAligned_Init(void)
 		goto irq_failed;
 	}
 
-	ret = request_irq(CENTER_ALLIGNED_INTERRUPT_ID, CenterAligned_Irq, 0, "my_center_alligned_isr", NULL);
+	//ret = request_irq(CENTER_ALLIGNED_INTERRUPT_ID, CenterAligned_Irq, 0, "my_center_alligned_isr", NULL);
 	if (ret)
 	{
 		pr_err("Interrupt init failed with error code %d\n", ret);

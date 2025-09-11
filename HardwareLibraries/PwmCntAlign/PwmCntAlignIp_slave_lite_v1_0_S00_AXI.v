@@ -130,9 +130,7 @@
 	 reg [1:0] state_write;
 	 reg [1:0] state_read;
 	 reg      Interrupt_Clear_reg;
-	 reg 			Interrupt_Clear_reg_ff;
-	 reg			Interrupt_Clear_reg_ff2;
-	 reg 			Interrupt_Clear_Actl;
+	 reg 			Interrupt_Clear_reg_cnt;
 	 //State machine local parameters
 	 localparam Idle = 2'b00,Raddr = 2'b10,Rdata = 2'b11 ,Waddr = 2'b10,Wdata = 2'b11;
 	// Implement Write state machine
@@ -268,6 +266,7 @@
 										slv_reg4[3] <= 1'b0;
                 		if (S_AXI_WDATA[3]) begin
 											Interrupt_Clear_reg <= 1'b1;
+											Interrupt_Clear_cnt <= 3'b000;
 										end
 										slv_reg4[7:4] <= S_AXI_WDATA[7:4];
 									end else begin
@@ -307,10 +306,15 @@
 	                      slv_reg7 <= slv_reg7;
 	                    end
 	        endcase
-	      end else begin
-					Interrupt_Clear_reg <= 1'b0;
+	  		end else begin
+					if (Interrupt_Clear_cnt == 3'b111) begin
+						Interrupt_Clear_cnt <= 3'b000;
+						Interrupt_Clear_reg <= 1'b0;
+					else
+						Interrupt_Clear_cnt <= Interrupt_Clear_cnt + 3'b001;
 				end
-	  end
+			end
+		end 
 	end    
 
 	// Implement read state machine
@@ -365,25 +369,13 @@
 	// Add user logic here
     // Example: instantiating your module
 
-		always @(posedge S_AXI_ACLK) begin
-			if (!S_AXI_ARESETN) begin
-				Interrupt_Clear_reg_ff <= 1'b0;
-				Interrupt_Clear_reg_ff2 <= 1'b0;
-				Interrupt_Clear_Actl <=  1'b0;
-			end else begin
-				Interrupt_Clear_reg_ff <= Interrupt_Clear_reg;
-				Interrupt_Clear_reg_ff2 <= Interrupt_Clear_reg_ff;
-				Interrupt_Clear_Actl <= Interrupt_Clear_reg | Interrupt_Clear_reg_ff | Interrupt_Clear_reg_ff2;
-			end
-		end 
-
 		ThreePhasePwm MyPwm 
 		(
 		  .Clk   (S_AXI_ACLK),      // connect to AXI clock if needed
 		  .Reset_n(S_AXI_ARESETN),   // reset
 			.Period (slv_reg0),
-		  	.Duty_0 (slv_reg1),
-		  	.Duty_1 (slv_reg2),
+		  .Duty_0 (slv_reg1),
+		  .Duty_1 (slv_reg2),
 			.Duty_2 (slv_reg3), // your output
 			.Enable (slv_reg4[0]),
 			.CenterAlligned (slv_reg4[1]),
@@ -391,7 +383,7 @@
 			.DeadTime_En(slv_reg4[4]),
 			.DeadTime(slv_reg5),
 			.Interrupt_Active(Interrupt_Port),
-			.Interrupt_Clear(Interrupt_Clear_Actl),
+			.Interrupt_Clear(Interrupt_Clear_reg),
 			.PWM (Pwm_Out),
 			.PWM_LSS(Pwm_Out_LSS)
 		);

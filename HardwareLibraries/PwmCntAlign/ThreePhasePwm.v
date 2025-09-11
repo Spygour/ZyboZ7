@@ -30,6 +30,7 @@ module ThreePhasePwm (
     wire [31:0] SR1_0, SR1_1, SR1_2;
     wire [31:0] SR0_0, SR0_1, SR0_2;
     wire [31:0] SR1_0, SR1_1, SR1_2;
+    wire Interrupt_Wire;
     
     /* First calculate the accepted dutycycle */
     assign Duty_0_internal  = (Duty_0 < Period) ? Duty_0 : Period;
@@ -53,6 +54,8 @@ module ThreePhasePwm (
     assign SR1_0_LSS = ((Duty_0 + DeadTime) > Period) ?  (Duty_0 + DeadTime - Period) : (Duty_0 + DeadTime);
     assign SR1_1_LSS = ((Duty_1 + DeadTime) > Period) ?  (Duty_1 + DeadTime - Period) : (Duty_1 + DeadTime);
     assign SR1_2_LSS = ((Duty_2 + DeadTime) > Period) ?  (Duty_2 + DeadTime - Period) : (Duty_2 + DeadTime);
+
+    assign Interrupt_Wire = (Interrupt_Enable) ? 1'b1 : 1'b0;
 
     always @(posedge Clk) begin
         if (!Reset_n) begin
@@ -87,7 +90,7 @@ module ThreePhasePwm (
                 CM1_1_LSS  <= SR1_1_LLS;
                 CM1_2_LSS  <= SR1_2_LLS;
             end
-            Interrupt_Active <= Interrupt_Enable;
+            Interrupt_Active <= Interrupt_Wire;
         end else begin
             if (Interrupt_Clear) begin
                 Interrupt_Active <= 1'b0;
