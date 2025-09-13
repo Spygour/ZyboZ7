@@ -222,7 +222,6 @@
 	      slv_reg5 <= 0;
 	      slv_reg6 <= 0;
 	      slv_reg7 <= 0;
-	      Interrupt_Clear_cnt <= 3'b000;
 	    end 
 	  else begin
 	    if (S_AXI_WVALID)
@@ -261,20 +260,14 @@
 	              if ( S_AXI_WSTRB[byte_index] == 1 ) begin
 	                // Respective byte enables are asserted as per write strobes 
 	                // Slave register 4
-					if (byte_index == 0) begin
-					   slv_reg4[2:0] <= S_AXI_WDATA[2:0];
-                	   // Bit 3: write-1-to-clear Interrupt
-					   slv_reg4[3] <= 1'b0;
-                	   if (S_AXI_WDATA[3]) begin
-						  Interrupt_Clear_reg <= 1'b1;
-						  Interrupt_Clear_cnt <= 3'b000;
-					   end
-					   slv_reg4[7:4] <= S_AXI_WDATA[7:4];
-					end else begin
+									if (byte_index == 0) begin
+                			if (S_AXI_WDATA[3]) begin
+						  					Interrupt_Clear_reg <= 1'b1;
+					   					end
                 		// other bytes if needed
-                		slv_reg4[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
-					end
-				   end
+									end
+									slv_reg4[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
+				   			end
 	          3'h5:
 	            for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
 	              if ( S_AXI_WSTRB[byte_index] == 1 ) begin
@@ -305,18 +298,31 @@
 	                      slv_reg5 <= slv_reg5;
 	                      slv_reg6 <= slv_reg6;
 	                      slv_reg7 <= slv_reg7;
-	                    end
+	            end
 	        endcase
-	  		end else begin
-					if (Interrupt_Clear_cnt == 3'b111) begin
-						Interrupt_Clear_cnt <= 3'b000;
-						Interrupt_Clear_reg <= 1'b0;
-					end else begin
-						Interrupt_Clear_cnt <= Interrupt_Clear_cnt + 3'b001;
-					end
-			end
+				end
 		end
 	end
+
+
+	// Interrupt clear pulse generator
+always @(posedge S_AXI_ACLK) begin
+    if (S_AXI_ARESETN == 1'b0) begin
+        Interrupt_Clear_reg <= 1'b0;
+        Interrupt_Clear_cnt <= 3'b000;
+    end else begin
+			 if (Interrupt_Clear_reg == 1) begin
+            if (Interrupt_Clear_cnt == 3'b111) begin // keep high for 3 cycles (0,1,2)
+                Interrupt_Clear_reg <= 1'b0;
+                Interrupt_Clear_cnt <= 3'b000;
+            end else begin
+                Interrupt_Clear_cnt <= Interrupt_Clear_cnt + 1;
+            end
+        end else begin
+					 Interrupt_Clear_cnt <= 3'b000;
+				end
+    end
+end
     
 
 	// Implement read state machine
