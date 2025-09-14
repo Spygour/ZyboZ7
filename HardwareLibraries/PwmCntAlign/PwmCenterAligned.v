@@ -80,7 +80,7 @@ module PwmCenterAligned #(
   wire [2:0] Pwm_Internal;
   wire [2:0] Pwm_Internal_LSS;
   reg        Pwm_Event;
-	wire 	     Pwm_Event_Reg;
+  wire       Pwm_Event_Reg;
   PwmCenterAligned_slave_lite_v1_0_S00_AXI #(
       .C_S_AXI_DATA_WIDTH(C_S00_AXI_DATA_WIDTH),
       .C_S_AXI_ADDR_WIDTH(C_S00_AXI_ADDR_WIDTH)
@@ -151,11 +151,11 @@ module PwmCenterAligned #(
     if (!s00_axi_aresetn) begin
       Pwm_OutPort <= 3'b000;
       Pwm_OutPort_LSS <= 3'b000;
-			Pwm_Event <= 1'b0;
+      Pwm_Event <= 1'b0;
     end else begin
       Pwm_OutPort <= Pwm_Internal;
       Pwm_OutPort_LSS <= Pwm_Internal_LSS;
-	  Pwm_Event <= Pwm_Event_Reg;
+      Pwm_Event <= Pwm_Event_Reg;
     end
   end
   // User logic ends

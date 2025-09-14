@@ -347,12 +347,12 @@ module PwmCenterAligned_slave_lite_v1_0_S00_AXI #(
   assign S_AXI_RDATA = (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h0) ? slv_reg0 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h1) ? slv_reg1 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h2) ? slv_reg2 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h3) ? slv_reg3 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h4) ? slv_reg4 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h5) ? slv_reg5 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h6) ? slv_reg6 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 3'h7) ? slv_reg7 : 0;
   // Add user logic here
   ThreePhasePwm MyPwm (
-      .Clk             (S_AXI_ACLK),           // connect to AXI clock if needed
-      .Reset_n         (S_AXI_ARESETN),        // reset
+      .Clk             (S_AXI_ACLK),      // connect to AXI clock if needed
+      .Reset_n         (S_AXI_ARESETN),   // reset
       .Period          (slv_reg0),
       .Duty_0          (slv_reg1),
       .Duty_1          (slv_reg2),
-      .Duty_2          (slv_reg3),             // your output
+      .Duty_2          (slv_reg3),        // your output
       .Enable          (slv_reg4[0]),
       .CenterAlligned  (slv_reg4[1]),
       .Interrupt_Enable(slv_reg4[2]),
