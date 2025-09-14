@@ -10,7 +10,6 @@ module ThreePhasePwm (
     input  wire        CenterAlligned,
     output reg  [ 2:0] PWM,
     output reg  [ 2:0] PWM_LSS,
-    input  wire        Interrupt_Clear,
     input  wire        Interrupt_Enable,
     input  wire        DeadTime_En,
     output reg         Interrupt_Active
@@ -94,9 +93,7 @@ module ThreePhasePwm (
       end
       Interrupt_Active <= Interrupt_Wire;
     end else begin
-      if (Interrupt_Clear) begin
-        Interrupt_Active <= 1'b0;
-      end
+      Interrupt_Active <= 1'b0;
       count <= count + 1'b1;
     end
   end

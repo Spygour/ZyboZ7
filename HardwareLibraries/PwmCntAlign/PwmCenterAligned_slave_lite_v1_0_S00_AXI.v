@@ -18,8 +18,6 @@ module PwmCenterAligned_slave_lite_v1_0_S00_AXI #(
     output wire [2:0] Pwm_Out_LSS,
 
     output wire Interrupt_Port,
-
-    input wire Pwm_Clear_Request,
     // User ports ends
     // Do not modify the ports beyond this line
 
@@ -129,7 +127,6 @@ module PwmCenterAligned_slave_lite_v1_0_S00_AXI #(
   //state machine varibles 
   reg [1:0] state_write;
   reg [1:0] state_read;
-  reg       Interrupt_Clear_reg;
   //State machine local parameters
   localparam Idle = 2'b00, Raddr = 2'b10, Rdata = 2'b11, Waddr = 2'b10, Wdata = 2'b11;
   // Implement Write state machine
@@ -362,19 +359,8 @@ module PwmCenterAligned_slave_lite_v1_0_S00_AXI #(
       .DeadTime_En     (slv_reg4[3]),
       .DeadTime        (slv_reg5),
       .Interrupt_Active(Interrupt_Port),
-      .Interrupt_Clear (Interrupt_Clear_reg),
       .PWM             (Pwm_Out),
       .PWM_LSS         (Pwm_Out_LSS)
   );
-
-  // User logic ends
-  always @(posedge S_AXI_ACLK) begin
-    if (S_AXI_ARESETN == 1'b0) begin
-      Interrupt_Clear_reg <= 1'b0;
-    end else begin
-      Interrupt_Clear_reg <= Pwm_Clear_Request;
-    end
-  end
-
 
 endmodule
