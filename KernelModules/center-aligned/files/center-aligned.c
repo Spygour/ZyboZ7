@@ -56,20 +56,20 @@ module_param(mystr, charp, S_IRUGO);
 #define DUTY3 12
 #define CTRL 16
 #define DEADTIME 20
+#define INTR 24
 
-#define CENTER_ALLIGNED_INTERRUPT_ID 62
+#define CENTER_ALLIGNED_INTERRUPT_ID 61
 
 #define PWM_ENABLE 0
 #define PWM_CENTER_ALIGNED 1
 #define PWM_INTERRUPT_ENABLE 2
-#define PWM_INTERRUPT_CLEAR 3
-#define PWM_DEADTIME_ENABLE 4
+#define PWM_DEADTIME_ENABLE 3
 
 typedef enum 
 {
 	FIRST_PHASE,
-	SECOND_PHASE
-
+	SECOND_PHASE,
+	DEFAULT
 }PWM_STATE;
 
 static PWM_STATE CenterAligned_State = FIRST_PHASE;
@@ -80,12 +80,13 @@ static void __iomem *CenterAligned_base;
 
 static struct task_struct *CenterAligned_task;
 
-
+static int CenterAligned_InterruptId;
 
 
 /* Main Isr that can be used to update the values of the PWMS */
 static irqreturn_t CenterAligned_Irq(int irq, void *lp)
 {
+	uint32_t status = ioread32(CenterAligned_base + INTR);
 	switch(CenterAligned_State)
 	{
 		case FIRST_PHASE:
@@ -102,16 +103,19 @@ static irqreturn_t CenterAligned_Irq(int irq, void *lp)
 			iowrite32(10000, CenterAligned_base + DUTY1);
 			iowrite32(5000, CenterAligned_base + DUTY2);
 			iowrite32(40000, CenterAligned_base + DUTY3);
-			CenterAligned_State = FIRST_PHASE;
+			CenterAligned_State = DEFAULT;
+			/* Deactivate the interrupt */
+			iowrite32( 3u, CenterAligned_base + CTRL);
 			break;
 		}
 
 		default:
+		  pr_info("STILL THERE GAMW TO SYMPAN\n");
 			CenterAligned_State = FIRST_PHASE;
 			break;
 	}
 	/* Clear the interrupt flag , restart the interrupt */
-	iowrite32(CenterAligned_CtrReg | (1 << PWM_INTERRUPT_CLEAR), CenterAligned_base + CTRL);
+	iowrite32((status | 1u) , CenterAligned_base + INTR);
 	return IRQ_HANDLED;
 }
 
@@ -129,22 +133,21 @@ static bool Pwm_Init(void);
 static inline int InterruptCheck(void)
 {
 	struct device_node *np;
-	int irq;
 
-	np = of_find_compatible_node(NULL, NULL, "xlnx,PwmCntAlignIp-1.0"); /* Please modify this */
+	np = of_find_compatible_node(NULL, NULL, "xlnx,PwmCenterAligned_1_0"); /* Please modify this */
 	if (!np) {
 	    pr_err("PWM node not found in device tree\n");
 	    return -ENODEV;
 	}
 
-	irq = irq_of_parse_and_map(np, 0);
-	if (irq <= 0) {
+	CenterAligned_InterruptId = irq_of_parse_and_map(np, 0);
+	if (CenterAligned_InterruptId <= 0) {
 	    pr_err("PWM interrupt not mapped\n");
 	    of_node_put(np);
 	    return -EINVAL;
 	}
 
-	pr_info("Mapped PWM IRQ = %d\n", irq);
+	pr_info("Mapped PWM IRQ = %d\n", CenterAligned_InterruptId);
 	of_node_put(np);
 
 	return 0;
@@ -168,7 +171,7 @@ static int __init CenterAligned_Init(void)
 		goto irq_failed;
 	}
 
-	//ret = request_irq(CENTER_ALLIGNED_INTERRUPT_ID, CenterAligned_Irq, 0, "my_center_alligned_isr", NULL);
+	ret = request_irq(CenterAligned_InterruptId, CenterAligned_Irq, 0, "my_center_alligned_isr", NULL);
 	if (ret)
 	{
 		pr_err("Interrupt init failed with error code %d\n", ret);
@@ -240,7 +243,7 @@ static int center_aligned_thread(void *data)
 
 static void __exit CenterAligned_Exit(void)
 {
-	free_irq(CENTER_ALLIGNED_INTERRUPT_ID, NULL);
+	free_irq(CenterAligned_InterruptId, NULL);
   //kthread_stop(CenterAligned_task);
 	axi_write32_safe(CenterAligned_base, CTRL, 0x0);
 	iounmap(CenterAligned_base);
