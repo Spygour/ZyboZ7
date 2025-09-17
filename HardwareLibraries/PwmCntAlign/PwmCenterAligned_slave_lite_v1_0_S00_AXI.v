@@ -16,8 +16,6 @@ module PwmCenterAligned_slave_lite_v1_0_S00_AXI #(
     output wire [2:0] Pwm_Out,
 
     output wire [2:0] Pwm_Out_LSS,
-
-    output wire Interrupt_Port,
     // User ports ends
     // Do not modify the ports beyond this line
 
@@ -80,9 +78,15 @@ module PwmCenterAligned_slave_lite_v1_0_S00_AXI #(
     output wire S_AXI_RVALID,
     // Read ready. This signal indicates that the master can
     // accept the read data and response information.
-    input wire S_AXI_RREADY
+    input wire S_AXI_RREADY,
+
+    output reg irq
 );
 
+
+  localparam INTERRUPT_WAIT = 5'h00;
+  localparam INTERRUPT_PENDING = 5'h01;
+  localparam INTERRUPT_CLEAR = 5'h02;
   // AXI4LITE signals
   reg [C_S_AXI_ADDR_WIDTH-1 : 0] axi_awaddr;
   reg axi_awready;
@@ -93,6 +97,14 @@ module PwmCenterAligned_slave_lite_v1_0_S00_AXI #(
   reg axi_arready;
   reg [1 : 0] axi_rresp;
   reg axi_rvalid;
+
+  reg [4 : 0] Interrupt_LvlState;
+
+  reg Interrupt_Clear_cur;
+  reg Interrupt_Clear_prev;
+  reg Interrupt_State_cur;
+  reg Interrupt_State_prev;
+
 
   // Example-specific design signals
   // local parameter for addressing 32 bit / 64 bit C_S_AXI_DATA_WIDTH
@@ -200,6 +212,8 @@ module PwmCenterAligned_slave_lite_v1_0_S00_AXI #(
       slv_reg5 <= 0;
       slv_reg6 <= 0;
       slv_reg7 <= 0;
+      Interrupt_Clear_prev <= 1'b0;
+      Interrupt_Clear_cur <= 1'b0;
     end else begin
       if (S_AXI_WVALID) begin
         case ( (S_AXI_AWVALID) ? S_AXI_AWADDR[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] : axi_awaddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] )
@@ -274,11 +288,16 @@ module PwmCenterAligned_slave_lite_v1_0_S00_AXI #(
               byte_index = 0;
               byte_index <= (C_S_AXI_DATA_WIDTH / 8) - 1;
               byte_index = byte_index + 1
-          )
-          if (S_AXI_WSTRB[byte_index] == 1) begin
-            // Respective byte enables are asserted as per write strobes 
-            // Slave register 6
-            slv_reg6[(byte_index*8)+:8] <= S_AXI_WDATA[(byte_index*8)+:8];
+          ) begin
+            if (S_AXI_WSTRB[byte_index] == 1) begin
+              // Respective byte enables are asserted as per write strobes 
+              // Slave register 6
+              slv_reg6[(byte_index*8)+:8] <= S_AXI_WDATA[(byte_index*8)+:8];
+            end
+            if (byte_index == 0) begin
+              Interrupt_Clear_prev <= Interrupt_Clear_cur;
+              Interrupt_Clear_cur  <= S_AXI_WDATA[0];
+            end
           end
           3'h7:
           for (
@@ -300,8 +319,13 @@ module PwmCenterAligned_slave_lite_v1_0_S00_AXI #(
             slv_reg5 <= slv_reg5;
             slv_reg6 <= slv_reg6;
             slv_reg7 <= slv_reg7;
+            Interrupt_Clear_prev <= Interrupt_Clear_cur;
+            Interrupt_Clear_cur <= 1'b0;
           end
         endcase
+      end else begin
+        Interrupt_Clear_prev <= 1'b0;
+        Interrupt_Clear_cur  <= 1'b0;
       end
     end
   end
@@ -341,6 +365,44 @@ module PwmCenterAligned_slave_lite_v1_0_S00_AXI #(
           end else state_read <= state_read;
         end
       endcase
+    end
+  end
+
+
+  // Implement Interrupt Handler
+  always @(posedge S_AXI_ACLK) begin
+    if (S_AXI_ARESETN == 1'b0) begin
+      irq <= 1'b0;
+      Interrupt_LvlState <= INTERRUPT_WAIT;
+    end else begin
+      case (Interrupt_LvlState)
+        INTERRUPT_WAIT: begin
+          if ((Interrupt_State_prev == 1'b0) && (Interrupt_State_cur == 1'b1)) begin
+            irq <= 1'b1;
+            Interrupt_LvlState <= INTERRUPT_PENDING;
+          end
+        end
+        INTERRUPT_PENDING: begin
+          if ((Interrupt_Clear_prev == 1'b0) && (Interrupt_Clear_cur == 1'b1)) begin
+            irq <= 1'b0;
+            Interrupt_LvlState <= INTERRUPT_WAIT;
+          end
+        end
+        default: begin
+          irq <= 1'b0;
+        end
+      endcase
+    end
+  end
+
+  // Implement State Handler
+  always @(posedge S_AXI_ACLK) begin
+    if (S_AXI_ARESETN == 1'b0) begin
+      Interrupt_State_prev <= 1'b0;
+      Interrupt_State_cur  <= 1'b0;
+    end else begin
+      Interrupt_State_prev <= Interrupt_State_cur;
+      Interrupt_State_cur  <= Interrupt_Port;
     end
   end
   // Implement memory mapped register select and read logic generation
