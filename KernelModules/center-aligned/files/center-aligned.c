@@ -103,9 +103,9 @@ static irqreturn_t CenterAligned_Irq(int irq, void *lp)
 			iowrite32(10000, CenterAligned_base + DUTY1);
 			iowrite32(5000, CenterAligned_base + DUTY2);
 			iowrite32(40000, CenterAligned_base + DUTY3);
-			CenterAligned_State = DEFAULT;
+			CenterAligned_State = FIRST_PHASE;
+			pr_info("gia pame ligo\n");
 			/* Deactivate the interrupt */
-			iowrite32( 3u, CenterAligned_base + CTRL);
 			break;
 		}
 
@@ -134,7 +134,7 @@ static inline int InterruptCheck(void)
 {
 	struct device_node *np;
 
-	np = of_find_compatible_node(NULL, NULL, "xlnx,PwmCenterAligned_1_0"); /* Please modify this */
+	np = of_find_compatible_node(NULL, NULL, "xlnx,PwmCenterAligned-1.0"); /* Please modify this */
 	if (!np) {
 	    pr_err("PWM node not found in device tree\n");
 	    return -ENODEV;
@@ -252,3 +252,4 @@ static void __exit CenterAligned_Exit(void)
 
 module_init(CenterAligned_Init);
 module_exit(CenterAligned_Exit);
+
