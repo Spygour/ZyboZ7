@@ -1,5 +1,5 @@
 obj-m := adcsonar.o
-adcsonar-objs := adcsonar.o xadc.o
+adcsonar-objs := adcsonar_main.o xadc.o
 
 MY_CFLAGS += -g -DDEBUG
 ccflags-y += ${MY_CFLAGS}

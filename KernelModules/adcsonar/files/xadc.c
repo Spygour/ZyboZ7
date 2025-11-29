@@ -65,9 +65,9 @@ void Xadc_Init(XADC_CONFIG_T* config)
   /* Reset the xadc */
   iowrite32(XADC_RESET, Xadc_Base + XADC_RESET_OFFSET);
   /* Configure the adc by writing to configuration registers*/
-  iowrite32((uint32_t)config->config1, Xadc_Base + XADC_CONFIG1_OFFSET);
-  iowrite32((uint32_t)config->config2, Xadc_Base + XADC_CONFIG2_OFFSET);
-  iowrite32((uint32_t)config->config3, Xadc_Base + XADC_CONFIG3_OFFSET);
+  iowrite32(config->config1.U, Xadc_Base + XADC_CONFIG1_OFFSET);
+  iowrite32(config->config2.U, Xadc_Base + XADC_CONFIG2_OFFSET);
+  iowrite32(config->config3.U, Xadc_Base + XADC_CONFIG3_OFFSET);
 
   if (config->seq_mode_en)
   {
@@ -83,7 +83,7 @@ void Xadc_Init(XADC_CONFIG_T* config)
       /* Same input mode as channel mask */
       iowrite32(config->seq_channel_mask, Xadc_Base + XADC_SEQ_CH_INPUT_MODE_OFFSET);
     }
-    if (config->config1.disable_average.B.disable_average == 1u)
+    if (config->config1.B.disable_average == 1u)
     {
       /* Same averaging as channel mask */
       iowrite32(config->seq_channel_mask, Xadc_Base + XADC_SEQ_CH_AVG_EN_OFFSET);
@@ -91,7 +91,7 @@ void Xadc_Init(XADC_CONFIG_T* config)
     /* Acq sequence register is not needed for now */
   }
   /* Check if interrupt is needed */
-  if (config->interrupt_enable)
+  if (config->intr_en)
   {
     /* Configure xadc interrupts, SEQUENCE INTERRUPT */
     iowrite32(XAD_EOS_INT_ENABLE, Xadc_Base + XADC_INTR_ENABLE_OFFSET);

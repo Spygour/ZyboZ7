@@ -3,8 +3,6 @@
 
 /* Kernel includes */
 #include <linux/types.h>   /* u32, u16, bool */
-#include "stdint.h"
-#include "stdbool.h"
 #include <linux/io.h>      /* __iomem */
 /* Includes */
 
@@ -117,8 +115,8 @@ typedef struct
   XADC_CONFIG2_T config2;
   XADC_CONFIG3_T config3;
   uint32_t seq_channel_mask;
-  bool  interrupt_enable;
-  bool  sequence_mode_en;
+  bool  intr_en;
+  bool  seq_mode_en;
   void (*irq_handler)(void);
   uint32_t xadc_base_address; /* Warning this is the base address that you see from vivado side */
   uint32_t axi_size;
