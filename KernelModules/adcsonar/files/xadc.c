@@ -44,10 +44,13 @@ static inline int Xadc_InterruptCheck(const char* compat)
 static irqreturn_t Xadc_Irq(int irq, void *lp)
 {
   /* Clear the SEQUENCE interrupt */
-  iowrite32(XADC_EOS_CLEAR_BIT, Xadc_Base + XADC_INTR_STATUS_OFFSET);
+  iowrite32(XADC_EOS_CLEAR_BIT | XADC_EOC_CLEAR_BIT, Xadc_Base + XADC_INTR_STATUS_OFFSET);
+  printk("Mpika sto interrupt magka \n");
+
   /* Go to the callback */
   if (Xadc_Cb)
   {
+      printk("Akolouthei to callback \n");
       Xadc_Cb();
   }
   return IRQ_HANDLED;
@@ -66,7 +69,7 @@ void Xadc_Init(XADC_CONFIG_T* config)
   /* Reset the xadc */
   iowrite32(XADC_RESET, Xadc_Base + XADC_RESET_OFFSET);
   /* Add a small delay */
-  usleep(100);
+  usleep_range(100, 200);
   /* Configure the adc by writing to configuration registers*/
   iowrite32(config->config1.U, Xadc_Base + XADC_CONFIG1_OFFSET);
   iowrite32(config->config2.U, Xadc_Base + XADC_CONFIG2_OFFSET);
@@ -135,7 +138,9 @@ bool Xadc_StartConvertion(void)
 {
   /* Enable the start of convertion */
   uint32_t convCtrl_reg = ioread32(Xadc_Base + XADC_CONV_CONTROL_OFFSET);
-  if ((convCtrl_reg & XADC_CONV_START) == XADC_CONV_START)
+  uint32_t status_intr = ioread32(Xadc_Base + XADC_INTR_STATUS_OFFSET);
+
+  if (((convCtrl_reg & XADC_CONV_START) == XADC_CONV_START) && ((status_intr & 48) == 48))
   {
     return false;
   }

@@ -77,6 +77,7 @@ static struct task_struct *xadc_ktask;
 static void Xadc_IrqCb(void)
 {
 	atomic_set(&xadc_irq_flag, 1);
+	printk("Edw tha prepei na maste komple\n");
 }
 
 static void adcSonar_ParamsInit(void)
