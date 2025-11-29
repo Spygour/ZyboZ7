@@ -136,8 +136,8 @@ static inline int InterruptCheck(void)
 
 	np = of_find_compatible_node(NULL, NULL, "xlnx,PwmCenterAligned-1.0"); /* Please modify this */
 	if (!np) {
-	    pr_err("PWM node not found in device tree\n");
-	    return -ENODEV;
+		pr_err("PWM node not found in device tree\n");
+	  return -ENODEV;
 	}
 
 	CenterAligned_InterruptId = irq_of_parse_and_map(np, 0);
@@ -181,8 +181,8 @@ static int __init CenterAligned_Init(void)
 	bool flag = Pwm_Init();
 	if (!flag) 
 	{
-        pr_err("Failed to write dutycycles mothefucka\n");
-        goto  pwm_failed;
+    pr_err("Failed to write dutycycles mothefucka\n");
+    goto  pwm_failed;
     }
 
 	//CenterAligned_task = kthread_run(center_aligned_thread, NULL, "multiple_pwmthread");
@@ -200,10 +200,10 @@ static int __init CenterAligned_Init(void)
 static bool Pwm_Init(void)
 {
 	CenterAligned_base = ioremap(CENTER_ALIGNED_AXI_BASE, CENTER_ALIGNED_AXI_SIZE);
-    if (!CenterAligned_base) 
+  if (!CenterAligned_base) 
 	{
-        pr_err("Failed to map AXI1\n");
-        goto error;
+    pr_err("Failed to map AXI1\n");
+    goto error;
     }
 
 	axi_write32_safe(CenterAligned_base, PERIOD, 50000);

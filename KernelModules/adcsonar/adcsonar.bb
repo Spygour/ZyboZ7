@@ -9,6 +9,8 @@ INHIBIT_PACKAGE_STRIP = "1"
 
 SRC_URI = "file://Makefile \
            file://adcsonar.c \
+           file://xadc.c \
+           file://xadc.h \
 	   file://COPYING \
           "
 

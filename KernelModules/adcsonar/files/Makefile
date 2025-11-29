@@ -1,4 +1,5 @@
 obj-m := adcsonar.o
+adcsonar-objs := adcsonar.o xadc.o
 
 MY_CFLAGS += -g -DDEBUG
 ccflags-y += ${MY_CFLAGS}
@@ -6,7 +7,7 @@ ccflags-y += ${MY_CFLAGS}
 SRC := $(shell pwd)
 
 all:
-	$(MAKE) -C $(KERNEL_SRC) M=$(SRC)
+	$(MAKE) -C $(KERNEL_SRC) M=$(SRC) modules
 
 modules_install:
 	$(MAKE) -C $(KERNEL_SRC) M=$(SRC) modules_install
