@@ -83,7 +83,7 @@ static void adcSonar_ParamsInit(void)
 {
 	/* Enable interrupt and sequence mode */
 	xadc_Kconfig.intr_en = true;
-	xadc_Kconfig.seq_channel_mask = 1 << 14;
+	xadc_Kconfig.seq_channel_mask = (1U << 14U) | (1U << 7U); /* AUX 14 AND AUX 7 */
 	xadc_Kconfig.seq_mode_en = true;
 
 	/* Config 1 register */
