@@ -115,12 +115,6 @@ void Xadc_Init(XADC_CONFIG_T* config)
       /* Same input mode as channel mask */
       iowrite32(config->seq_channel_mask, Xadc_Base + XADC_SEQ_CH_INPUT_MODE_OFFSET);
     }
-    if (config->config1.B.disable_average == 1u)
-    {
-      /* Same averaging as channel mask */
-      iowrite32(config->seq_channel_mask, Xadc_Base + XADC_SEQ_CH_AVG_EN_OFFSET);
-    }
-    /* Acq sequence register is not needed for now */
   }
     /* Configure the adc by writing to configuration registers*/
   iowrite32(config->config1.U, Xadc_Base + XADC_CONFIG1_OFFSET);
@@ -154,4 +148,31 @@ void Xadc_ReadChannel(uint16_t num, uint16_t* value)
   
     *value = ioread32(Xadc_Base + channel_offset);
   }
+}
+
+bool Xadc_GetSeqFlagAndClear(void)
+{
+  uint32_t intrflag = ioread32(Xadc_Base + XADC_INTR_STATUS_OFFSET);
+  uint32_t intrmask = XADC_EOS_CLEAR_BIT | XADC_EOC_CLEAR_BIT;
+  if ((intrflag & intrmask) == intrmask)
+  {
+    iowrite32(intrflag | intrmask, Xadc_Base + XADC_INTR_STATUS_OFFSET);
+    return true;
+  }
+  else 
+  {
+    return false;
+  }
+}
+
+void Xadc_RestartSequence(void)
+{
+  XADC_CONFIG2_T config2;
+  config2.U = ioread32(Xadc_Base + XADC_CONFIG2_OFFSET);
+  /* Set mode to default */
+  config2.B.channel_seq_mode = 0x0;
+  iowrite32(config2.U, Xadc_Base + XADC_CONFIG2_OFFSET);
+  /* Restart the fucking sequence */
+  config2.B.channel_seq_mode = XADC_SINGLE_PASS_SEQ_MODE;
+  iowrite32(config2.U, Xadc_Base + XADC_CONFIG2_OFFSET);
 }

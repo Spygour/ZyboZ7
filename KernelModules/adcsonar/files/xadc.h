@@ -150,5 +150,6 @@ extern void __iomem *Xadc_Base;
 void Xadc_Init(XADC_CONFIG_T* config);
 void Xadc_DeInit(void);
 void Xadc_ReadChannel(uint16_t num, uint16_t* value);
-
+bool Xadc_GetSeqFlagAndClear(void);
+void Xadc_RestartSequence(void);
 #endif /*__xadc_H */

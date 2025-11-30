@@ -92,14 +92,14 @@ static void adcSonar_ParamsInit(void)
 	xadc_Kconfig.config1.B.bibolar_en = 1U;
 	xadc_Kconfig.config1.B.channel = XADC_CHANNEL_VAUX14;
 	xadc_Kconfig.config1.B.disable_average = 0u;
-	xadc_Kconfig.config1.B.event_mode_en = 1U;
+	xadc_Kconfig.config1.B.event_mode_en = 0U; /* Continuous it does not work the event for now */
 
 	/* Config 2 register */
 	xadc_Kconfig.config2.B.overtemp_alm_dis = 1U;
 	xadc_Kconfig.config2.B.alarm_ext_dis = 0U;
 	xadc_Kconfig.config2.B.alarm_int_dis = 0U;
 	xadc_Kconfig.config2.B.calib_en = XADC_SENSOR_OFFSET_CORR_EN | XADC_SENSOR_OFFSET_GAIN_CORR_EN;
-	xadc_Kconfig.config2.B.channel_seq_mode = XADC_CONTINUOUS_SEQ_MODE;
+	xadc_Kconfig.config2.B.channel_seq_mode = XADC_SINGLE_PASS_SEQ_MODE;
 
 	/* Config 3 register */
 	xadc_Kconfig.config3.B.power_down_en = 0u;
@@ -125,13 +125,13 @@ static int adcSonar_thread(void *data)
 		{
 			case XADC_CONV_END:
 			{
-				if (atomic_xchg(&xadc_irq_flag, 0) == 1u)
+				if (Xadc_GetSeqFlagAndClear())
 				{
-					adcSonar_Status = ioread32(Xadc_Base + XADC_STATUS_OFFSET);
 					/* Handle the data that you took */
 					adcSonar_RawData = ioread16(Xadc_Base + XADC_VAUX14_RES) >> 4;
-        			adcSonar_Distance = (float)(adcSonar_RawData) * URM09_MAX_DISTANCE/URM09_MAX_RESOLUTION;
+        	adcSonar_Distance = (float)(adcSonar_RawData) * URM09_MAX_DISTANCE/URM09_MAX_RESOLUTION;
 					printk("Distance is %u\n", adcSonar_RawData);
+					Xadc_RestartSequence();
 					adcSonar_State = XADC_CONV_END;
 				}
 			}
@@ -140,7 +140,7 @@ static int adcSonar_thread(void *data)
 			default:
 			break;
 		}
-		msleep(1000);
+		msleep(500);
 	}
 	return 0;
 }
