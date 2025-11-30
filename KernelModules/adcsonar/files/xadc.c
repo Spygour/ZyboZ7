@@ -70,10 +70,6 @@ void Xadc_Init(XADC_CONFIG_T* config)
   iowrite32(XADC_RESET, Xadc_Base + XADC_RESET_OFFSET);
   /* Add a small delay */
   usleep_range(100, 200);
-  /* Configure the adc by writing to configuration registers*/
-  iowrite32(config->config1.U, Xadc_Base + XADC_CONFIG1_OFFSET);
-  iowrite32(config->config2.U, Xadc_Base + XADC_CONFIG2_OFFSET);
-  iowrite32(config->config3.U, Xadc_Base + XADC_CONFIG3_OFFSET);
 
   if (config->seq_mode_en)
   {
@@ -118,6 +114,10 @@ void Xadc_Init(XADC_CONFIG_T* config)
     iowrite32(XAD_EOS_INT_ENABLE, Xadc_Base + XADC_INTR_ENABLE_OFFSET);
     iowrite32(XADC_GLOBAL_INTR_ENABLE, Xadc_Base + XADC_GLOBAL_INTR_ENABLE_OFFSET);
   }
+    /* Configure the adc by writing to configuration registers*/
+  iowrite32(config->config1.U, Xadc_Base + XADC_CONFIG1_OFFSET);
+  iowrite32(config->config2.U, Xadc_Base + XADC_CONFIG2_OFFSET);
+  iowrite32(config->config3.U, Xadc_Base + XADC_CONFIG3_OFFSET);
 }
 
 void Xadc_DeInit(void)
