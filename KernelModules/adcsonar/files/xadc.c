@@ -91,11 +91,7 @@ void Xadc_Init(XADC_CONFIG_T* config)
 	  }
     /* Clear interrupt flags */
     uint32_t intrflag = ioread32(Xadc_Base + XADC_INTR_STATUS_OFFSET);
-    uint32_t intrmask = XADC_EOS_CLEAR_BIT | XADC_EOC_CLEAR_BIT;
-    if ((intrflag & intrmask) == intrmask)
-    {
-      iowrite32(intrflag | intrmask, Xadc_Base + XADC_INTR_STATUS_OFFSET);
-    }
+    iowrite32(intrflag | (XADC_EOS_CLEAR_BIT | XADC_EOC_CLEAR_BIT), Xadc_Base + XADC_INTR_STATUS_OFFSET);
     /* Configure xadc interrupts, SEQUENCE INTERRUPT */
     iowrite32(XAD_EOS_INT_ENABLE, Xadc_Base + XADC_INTR_ENABLE_OFFSET);
     iowrite32(XADC_GLOBAL_INTR_ENABLE, Xadc_Base + XADC_GLOBAL_INTR_ENABLE_OFFSET);
