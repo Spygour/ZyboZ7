@@ -44,7 +44,7 @@ static inline int Xadc_InterruptCheck(const char* compat)
 static irqreturn_t Xadc_Irq(int irq, void *lp)
 {
   /* Clear the SEQUENCE interrupt */
-  iowrite32(XADC_EOS_CLEAR_BIT | XADC_EOC_CLEAR_BIT, Xadc_Base + XADC_INTR_STATUS_OFFSET);
+  iowrite32(XADC_EOS_CLEAR_BIT, Xadc_Base + XADC_INTR_STATUS_OFFSET);
   printk("Mpika sto interrupt magka \n");
 
   /* Go to the callback */
@@ -99,10 +99,6 @@ void Xadc_Init(XADC_CONFIG_T* config)
   /* Check if interrupt is needed */
   if (config->intr_en)
   {
-    /* Configure xadc interrupts, SEQUENCE INTERRUPT */
-    iowrite32(XAD_EOS_INT_ENABLE, Xadc_Base + XADC_INTR_ENABLE_OFFSET);
-    iowrite32(XADC_GLOBAL_INTR_ENABLE, Xadc_Base + XADC_GLOBAL_INTR_ENABLE_OFFSET);
-
     /* Asign the irq handler */
     Xadc_Cb = config->irq_handler;
 
@@ -118,6 +114,9 @@ void Xadc_Init(XADC_CONFIG_T* config)
 		  pr_err("Request of interrupt failed \n");
 		  return;
 	  }
+    /* Configure xadc interrupts, SEQUENCE INTERRUPT */
+    iowrite32(XAD_EOS_INT_ENABLE, Xadc_Base + XADC_INTR_ENABLE_OFFSET);
+    iowrite32(XADC_GLOBAL_INTR_ENABLE, Xadc_Base + XADC_GLOBAL_INTR_ENABLE_OFFSET);
   }
 }
 
@@ -132,23 +131,6 @@ void Xadc_DeInit(void)
       Xadc_InterruptId = 0;
   }
   printk(KERN_ALERT "Xadc has been deinitialized\n");
-}
-
-bool Xadc_StartConvertion(void)
-{
-  /* Enable the start of convertion */
-  uint32_t convCtrl_reg = ioread32(Xadc_Base + XADC_CONV_CONTROL_OFFSET);
-  uint32_t status_intr = ioread32(Xadc_Base + XADC_INTR_STATUS_OFFSET);
-
-  if (((convCtrl_reg & XADC_CONV_START) == XADC_CONV_START) && ((status_intr & 48) == 48))
-  {
-    return false;
-  }
-  else 
-  {
-    iowrite32((convCtrl_reg | XADC_CONV_START), Xadc_Base + XADC_CONV_CONTROL_OFFSET);
-    return true;
-  }
 }
 
 void Xadc_ReadChannel(uint16_t num, uint16_t* value)

@@ -46,6 +46,7 @@
 #define XADC_DCLCK_DIV_4 0x4U
 
 #define XADC_SINGLE_PASS_SEQ_MODE 0x1U
+#define XADC_CONTINUOUS_SEQ_MODE 0x2U
 
 #define XADC_OFFSET_CORR_EN 0x01U
 #define XADC_OFFSET_GAIN_CORR_EN 0x02U
@@ -148,7 +149,6 @@ extern void __iomem *Xadc_Base;
 /* global functions */
 void Xadc_Init(XADC_CONFIG_T* config);
 void Xadc_DeInit(void);
-bool Xadc_StartConvertion(void);
 void Xadc_ReadChannel(uint16_t num, uint16_t* value);
 
 #endif /*__xadc_H */

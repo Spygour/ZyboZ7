@@ -64,7 +64,7 @@ unsigned myint = 0xdeadbeef;
 char *mystr = "default";
 static atomic_t xadc_irq_flag = ATOMIC_INIT(0);
 static const char *xadc_dev_string = "xlnx,zynq-xadc-1.00.a";
-static XADC_KSTATE adcSonar_State = XADC_START_CONV;
+static XADC_KSTATE adcSonar_State = XADC_CONV_END;
 static uint16_t adcSonar_RawData;
 static float adcSonar_Distance;
 static uint32_t adcSonar_Status;
@@ -99,7 +99,7 @@ static void adcSonar_ParamsInit(void)
 	xadc_Kconfig.config2.B.alarm_ext_dis = 0U;
 	xadc_Kconfig.config2.B.alarm_int_dis = 0U;
 	xadc_Kconfig.config2.B.calib_en = XADC_SENSOR_OFFSET_CORR_EN | XADC_SENSOR_OFFSET_GAIN_CORR_EN;
-	xadc_Kconfig.config2.B.channel_seq_mode = XADC_SINGLE_PASS_SEQ_MODE;
+	xadc_Kconfig.config2.B.channel_seq_mode = XADC_CONTINUOUS_SEQ_MODE;
 
 	/* Config 3 register */
 	xadc_Kconfig.config3.B.power_down_en = 0u;
@@ -123,13 +123,6 @@ static int adcSonar_thread(void *data)
 	{
 		switch (adcSonar_State)
 		{
-			case XADC_START_CONV:
-			if (Xadc_StartConvertion())
-			{
-				adcSonar_State = XADC_CONV_END;
-			}
-			break;
-
 			case XADC_CONV_END:
 			{
 				if (atomic_xchg(&xadc_irq_flag, 0) == 1u)
@@ -139,7 +132,7 @@ static int adcSonar_thread(void *data)
 					adcSonar_RawData = ioread16(Xadc_Base + XADC_VAUX14_RES) >> 4;
         			adcSonar_Distance = (float)(adcSonar_RawData) * URM09_MAX_DISTANCE/URM09_MAX_RESOLUTION;
 					printk("Distance is %u\n", adcSonar_RawData);
-					adcSonar_State = XADC_START_CONV;
+					adcSonar_State = XADC_CONV_END;
 				}
 			}
 			break;
