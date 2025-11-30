@@ -125,16 +125,7 @@ static int adcSonar_thread(void *data)
 		{
 			case XADC_CONV_END:
 			{
-				if (atomic_xchg(&xadc_irq_flag, 0) == 1u)
-				{
-					/* Handle the data that you took */
-					adcSonar_RawData = ioread16(Xadc_Base + XADC_VAUX14_RES) >> 4;
-        	adcSonar_Distance = (float)(adcSonar_RawData) * URM09_MAX_DISTANCE/URM09_MAX_RESOLUTION;
-					printk("Distance is %u from interrupt\n", adcSonar_RawData);
-					Xadc_RestartSequence();
-					adcSonar_State = XADC_CONV_END;
-				}
-				else if (Xadc_GetSeqFlagAndClear())
+				if (Xadc_GetSeqFlagAndClear())
 				{
 					/* Handle the data that you took */
 					adcSonar_RawData = ioread16(Xadc_Base + XADC_VAUX14_RES) >> 4;

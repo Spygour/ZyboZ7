@@ -44,8 +44,7 @@ static inline int Xadc_InterruptCheck(const char* compat)
 static irqreturn_t Xadc_Irq(int irq, void *lp)
 {
   /* Clear the SEQUENCE interrupt */
-  uint32_t interrupt_status = ioread32(Xadc_Base + XADC_INTR_STATUS_OFFSET);
-  iowrite32((interrupt_status | (XADC_EOS_CLEAR_BIT)), Xadc_Base + XADC_INTR_STATUS_OFFSET);
+  iowrite32(XADC_EOS_CLEAR_BIT, Xadc_Base + XADC_INTR_STATUS_OFFSET);
   printk("Mpika sto interrupt magka \n");
 
   /* Go to the callback */
@@ -71,10 +70,7 @@ void Xadc_Init(XADC_CONFIG_T* config)
   iowrite32(XADC_RESET, Xadc_Base + XADC_RESET_OFFSET);
   /* Add a small delay */
   usleep_range(100, 200);
-  /* Configure the adc by writing to configuration registers as 0 at first */
-  iowrite32(0u, Xadc_Base + XADC_CONFIG1_OFFSET);
-  iowrite32(0u, Xadc_Base + XADC_CONFIG2_OFFSET);
-  iowrite32(0u, Xadc_Base + XADC_CONFIG3_OFFSET);
+
   /* Check if interrupt is needed */
   if (config->intr_en)
   {
@@ -157,9 +153,10 @@ void Xadc_ReadChannel(uint16_t num, uint16_t* value)
 bool Xadc_GetSeqFlagAndClear(void)
 {
   uint32_t intrflag = ioread32(Xadc_Base + XADC_INTR_STATUS_OFFSET);
-  if ((intrflag & XADC_EOS_CLEAR_BIT) == XADC_EOS_CLEAR_BIT)
+  uint32_t intrmask = XADC_EOS_CLEAR_BIT | XADC_EOC_CLEAR_BIT;
+  if ((intrflag & intrmask) == intrmask)
   {
-    iowrite32(intrflag | XADC_EOS_CLEAR_BIT, Xadc_Base + XADC_INTR_STATUS_OFFSET);
+    iowrite32(intrflag | intrmask, Xadc_Base + XADC_INTR_STATUS_OFFSET);
     return true;
   }
   else 
