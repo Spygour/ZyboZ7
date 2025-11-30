@@ -71,6 +71,36 @@ void Xadc_Init(XADC_CONFIG_T* config)
   /* Add a small delay */
   usleep_range(100, 200);
 
+  /* Check if interrupt is needed */
+  if (config->intr_en)
+  {
+    /* Asign the irq handler */
+    Xadc_Cb = config->irq_handler;
+
+    /* Get first the interrupt mapped on yocto */
+    if (Xadc_InterruptCheck(config->device_string) < 0)
+    {
+      pr_err("Change the string is wrong \n");
+      return;
+    }
+    int ret = request_irq(Xadc_InterruptId, Xadc_Irq, 0, "adc_isr", NULL);
+    if (ret)
+	  {
+		  pr_err("Request of interrupt failed \n");
+		  return;
+	  }
+    /* Clear interrupt flags */
+    uint32_t intrflag = ioread32(Xadc_Base + XADC_INTR_STATUS_OFFSET);
+    uint32_t intrmask = XADC_EOS_CLEAR_BIT | XADC_EOC_CLEAR_BIT;
+    if ((intrflag & intrmask) == intrmask)
+    {
+      iowrite32(intrflag | intrmask, Xadc_Base + XADC_INTR_STATUS_OFFSET);
+    }
+    /* Configure xadc interrupts, SEQUENCE INTERRUPT */
+    iowrite32(XAD_EOS_INT_ENABLE, Xadc_Base + XADC_INTR_ENABLE_OFFSET);
+    iowrite32(XADC_GLOBAL_INTR_ENABLE, Xadc_Base + XADC_GLOBAL_INTR_ENABLE_OFFSET);
+  }
+
   if (config->seq_mode_en)
   {
     if (config->seq_channel_mask >= 0x10000)
@@ -91,28 +121,6 @@ void Xadc_Init(XADC_CONFIG_T* config)
       iowrite32(config->seq_channel_mask, Xadc_Base + XADC_SEQ_CH_AVG_EN_OFFSET);
     }
     /* Acq sequence register is not needed for now */
-  }
-  /* Check if interrupt is needed */
-  if (config->intr_en)
-  {
-    /* Asign the irq handler */
-    Xadc_Cb = config->irq_handler;
-
-    /* Get first the interrupt mapped on yocto */
-    if (Xadc_InterruptCheck(config->device_string) < 0)
-    {
-      pr_err("Change the string is wrong \n");
-      return;
-    }
-    int ret = request_irq(Xadc_InterruptId, Xadc_Irq, 0, "adc_isr", NULL);
-    if (ret)
-	  {
-		  pr_err("Request of interrupt failed \n");
-		  return;
-	  }
-    /* Configure xadc interrupts, SEQUENCE INTERRUPT */
-    iowrite32(XAD_EOS_INT_ENABLE, Xadc_Base + XADC_INTR_ENABLE_OFFSET);
-    iowrite32(XADC_GLOBAL_INTR_ENABLE, Xadc_Base + XADC_GLOBAL_INTR_ENABLE_OFFSET);
   }
     /* Configure the adc by writing to configuration registers*/
   iowrite32(config->config1.U, Xadc_Base + XADC_CONFIG1_OFFSET);
