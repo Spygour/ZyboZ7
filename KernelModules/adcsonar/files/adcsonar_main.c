@@ -46,6 +46,7 @@ MODULE_DESCRIPTION
 typedef enum 
 {
 	XADC_START_CONV,
+	XADC_CHECK_STATUS,
 	XADC_CONV_END
 }XADC_KSTATE;
 /* Address is 0xf8007100 */
@@ -64,7 +65,7 @@ unsigned myint = 0xdeadbeef;
 char *mystr = "default";
 static atomic_t xadc_irq_flag = ATOMIC_INIT(0);
 static const char *xadc_dev_string = "xlnx,zynq-xadc-1.00.a";
-static XADC_KSTATE adcSonar_State = XADC_CONV_END;
+static XADC_KSTATE adcSonar_State = XADC_START_CONV;
 static uint16_t adcSonar_RawData;
 static float adcSonar_Distance;
 static uint32_t adcSonar_Status;
@@ -123,6 +124,30 @@ static int adcSonar_thread(void *data)
 	{
 		switch (adcSonar_State)
 		{
+			case XADC_START_CONV:
+				adcSonar_State = XADC_CHECK_STATUS;
+				break;
+
+			case XADC_CHECK_STATUS:
+				/* First we read the status to avoid failure of the sequence */
+				if (Xadc_GetSeqStatusAndClear())
+				{
+					/* Start from here */
+					adcSonar_RawData = ioread16(Xadc_Base + XADC_VAUX14_RES) >> 4;
+        	adcSonar_Distance = (float)(adcSonar_RawData) * URM09_MAX_DISTANCE/URM09_MAX_RESOLUTION;
+					printk("Distance is %u\n", adcSonar_RawData);
+					Xadc_RestartSequence();
+				}
+				/* Otherwise go to first step */
+				else if (Xadc_GetSeqFlagAndClear())
+				{
+					adcSonar_RawData = ioread16(Xadc_Base + XADC_VAUX14_RES) >> 4;
+        	adcSonar_Distance = (float)(adcSonar_RawData) * URM09_MAX_DISTANCE/URM09_MAX_RESOLUTION;
+					printk("Distance is %u\n", adcSonar_RawData);
+					Xadc_RestartSequence();
+				}
+				adcSonar_State = XADC_CONV_END;
+			break;
 			case XADC_CONV_END:
 			{
 				if (Xadc_GetSeqFlagAndClear())

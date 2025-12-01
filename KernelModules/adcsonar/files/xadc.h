@@ -61,6 +61,9 @@
 #define XADC_EOS_CLEAR_BIT (0x1 << 4)
 /* End of conversion clear*/
 #define XADC_EOC_CLEAR_BIT (0x1 << 5)
+
+#define XADC_EOC_STATUS (0X1 << 5)
+#define XADC_EOS_STATUS (0x1 << 6)
 /* Types */
 typedef union
 {
@@ -151,5 +154,6 @@ void Xadc_Init(XADC_CONFIG_T* config);
 void Xadc_DeInit(void);
 void Xadc_ReadChannel(uint16_t num, uint16_t* value);
 bool Xadc_GetSeqFlagAndClear(void);
+bool Xadc_GetSeqStatusAndClear(void);
 void Xadc_RestartSequence(void);
 #endif /*__xadc_H */
