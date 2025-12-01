@@ -124,6 +124,19 @@ void Xadc_Init(XADC_CONFIG_T* config)
 
 void Xadc_DeInit(void)
 {
+  /* Disable interrupts */
+  iowrite32(0x0, Xadc_Base + XADC_INTR_ENABLE_OFFSET);
+  iowrite32(0x0, Xadc_Base + XADC_GLOBAL_INTR_ENABLE_OFFSET);
+  /* Clear config registers */
+  iowrite32(0x0, Xadc_Base + XADC_CONFIG1_OFFSET);
+  iowrite32(0x0, Xadc_Base + XADC_CONFIG2_OFFSET);
+  iowrite32(0x0, Xadc_Base + XADC_CONFIG3_OFFSET);
+  /* Clear sequence registers */
+  iowrite32(0x0, Xadc_Base + XADC_SEQ_AUX_CH_SEL_OFFSET);
+  iowrite32(0x0, Xadc_Base + XADC_SEQ_CH_INPUT_MODE_OFFSET);
+  /* Clear interrupts */
+  (void)ioread32(Xadc_Base + XADC_STATUS_OFFSET);
+  iowrite32(XADC_EOS_CLEAR_BIT | XADC_EOC_CLEAR_BIT, Xadc_Base + XADC_INTR_STATUS_OFFSET);
   if (Xadc_Base) {
       iounmap(Xadc_Base);
       Xadc_Base = NULL;
