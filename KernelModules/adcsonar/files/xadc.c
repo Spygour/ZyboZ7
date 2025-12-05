@@ -46,13 +46,11 @@ static irqreturn_t Xadc_Irq(int irq, void *lp)
   /* Read status register in order to clear it */
   uint32_t intrflag = ioread32(Xadc_Base + XADC_STATUS_OFFSET);
   /* Clear the SEQUENCE interrupt */
-  iowrite32(XADC_EOS_CLEAR_BIT, Xadc_Base + XADC_INTR_STATUS_OFFSET);
-  printk("Mpika sto interrupt magka \n");
+  //iowrite32(XADC_EOS_CLEAR_BIT, Xadc_Base + XADC_INTR_STATUS_OFFSET);
 
   /* Go to the callback */
   if (Xadc_Cb)
   {
-      printk("Akolouthei to callback \n");
       Xadc_Cb();
   }
   return IRQ_HANDLED;

@@ -26,11 +26,41 @@
 *
 */
 
+#include <stdlib.h>
 #include <stdio.h>
 
-int main(int argc, char **argv)
-{
-    printf("Hello World!\n");
+/* Static variables */
+static char *AdcSonarKo = "adcsonar";
+static char AdcSonarKo_String[128];
+/* public variables */
 
-    return 0;
+/* global functions */
+uint8_t AdcSonarHandle_Init(void)
+{
+  // Build the command string
+  snprintf(AdcSonarKo_String, sizeof(AdcSonarKo_String), "modprobe %s", AdcSonarKo);
+    // Load module
+  if (system(AdcSonarKo_String) != 0) 
+  {
+      perror("modprobe");
+      return 1;
+  }
+
+  printf("Module started successfully\n");
+  return 0;
+}
+
+uint8_t AdcSonarHandle_DeInit(void)
+{
+  // Build the command string
+  snprintf(AdcSonarKo_String, sizeof(AdcSonarKo_String), "modprobe -r %s", AdcSonarKo);
+    // Unload module
+  if (system(AdcSonarKo_String) != 0) 
+  {
+      perror("modprobe");
+      return 1;
+  }
+
+  printf("Module ended successfully\n");
+  return 0;
 }

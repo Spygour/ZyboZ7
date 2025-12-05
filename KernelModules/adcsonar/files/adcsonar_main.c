@@ -18,6 +18,7 @@
 
 */
 #include <linux/kernel.h>
+#include <linux/device.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kthread.h>
@@ -73,12 +74,16 @@ static uint32_t adcSonar_Status;
 static XADC_CONFIG_T xadc_Kconfig;
 static struct task_struct *xadc_ktask;
 
+/* This are used to store the kernel module to a path */
+static struct class *adcsonar_class;
+static struct device *adcsonar_device;
+static int adcsonar_major = 0;
+
 /* Functions */
 
 static void Xadc_IrqCb(void)
 {
 	atomic_set(&xadc_irq_flag, 1);
-	printk("Edw tha prepei na maste komple\n");
 }
 
 static void adcSonar_ParamsInit(void)
@@ -112,7 +117,7 @@ static void adcSonar_ParamsInit(void)
 	xadc_Kconfig.xadc_base_address = 0x43C10000U;
 
 	/* Interrupt */
-	xadc_Kconfig.irq_handler = Xadc_IrqCb;
+	xadc_Kconfig.irq_handler = NULL;
 
 	/* Device string */
 	xadc_Kconfig.device_string = xadc_dev_string;
@@ -176,6 +181,20 @@ static int __init adcsonar_init(void)
 	printk("<1>Hello Xadc module world.\n");
 	printk("<1>Module parameters were (0x%08x) and \"%s\"\n", myint,
 	       mystr);
+
+  adcsonar_major = register_chrdev(0, DRIVER_NAME, &fops);
+  if (adcsonar_major < 0)
+    return adcsonar_major;
+
+  adcsonar_class = class_create(THIS_MODULE, "adc_class");
+  if (IS_ERR(adcsonar_class))
+      return PTR_ERR(adcsonar_class);
+
+  adcsonar_device = device_create(adcsonar_class, NULL, MKDEV(adcsonar_major, 0), NULL, DRIVER_NAME);
+  if (IS_ERR(adcsonar_device))
+    return PTR_ERR(adcsonar_device);
+
+  pr_info("adcsonar device created at /dev/%s\n", DRIVER_NAME);
 
 	adcSonar_ParamsInit();
 

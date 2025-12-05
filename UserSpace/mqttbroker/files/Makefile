@@ -1,7 +1,10 @@
 APP = mqttbroker
 
-# Add any other object files to this list below
-APP_OBJS = mqttbroker.o
+# Source files
+SRCS = mqttSender.c XadcHandle/XadcHandle.c AdcSonarHandle/AdcSonarHandle.c
+
+# Object files
+APP_OBJS = $(patsubst %.c, %.o, $(SRCS))
 
 all: build
 
