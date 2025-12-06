@@ -26,8 +26,11 @@
 *
 */
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <fcntl.h>   // for open
+#include <unistd.h>  // for read, close
+#include <stdbool.h> // for bool
+#include <stdint.h>  // for uint32_t, etc.
+#include "AdcSonarHandle.h"
 
 /* Static variables */
 static char *AdcSonarKo = "adcsonar";
@@ -63,4 +66,18 @@ uint8_t AdcSonarHandle_DeInit(void)
 
   printf("Module ended successfully\n");
   return 0;
+}
+
+bool AdcSonarHandle_ReadData(ADCSONARHANDLE_DATA* data)
+{
+  uint32_t version_prev = data->version;
+  int fd = open("/dev/adcsonar", O_RDONLY);
+  if (read(fd, data, sizeof(ADCSONARHANDLE_DATA)) != sizeof(ADCSONARHANDLE_DATA))
+  {
+      close(fd);
+      return false;
+  }
+  /* Close nevertheless */
+  close(fd);
+  return (version_prev != data->version);
 }

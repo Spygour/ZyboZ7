@@ -28,8 +28,9 @@
 
 #include <stdio.h>
 #include <unistd.h>
-#include "XadcHandle.h"
-#include "AdcSonarHandle.h"
+#include "AdcSonarHandle/AdcSonarHandle.h"
+#include "XadcHandle/XadcHandle.h"
+#include "MqttHandle/MqttHandle.h"
 
 typedef enum 
 {
@@ -40,29 +41,44 @@ typedef enum
     BIND_XADC
 } MQTT_BROKER_STATE;
 
-static MQTT_BROKER_STATE mqttbroker_state = UNBIND_XADC;
+static bool mqttWriteFlag = false;
+static MQTT_BROKER_STATE scheduler_state = UNBIND_XADC;
+static ADCSONARHANDLE_DATA adcSonar_kData;
 static uint8_t endFlag = 0;
 
-static void MqttMainRunnable(void)
+static void AppScheduler(void)
 {
-    switch(mqttbroker_state)
+    switch(scheduler_state)
     {
         case UNBIND_XADC:
+            adcSonar_kData.distance = 0;
+            adcSonar_kData.version = 0u;
             endFlag = XadcUnbindDriver();
-            mqttbroker_state = START_XADC_KERNEL;
+            scheduler_state = START_XADC_KERNEL;
             break;
 
         case START_XADC_KERNEL:
             endFlag = AdcSonarHandle_Init();
-            mqttbroker_state = READ_DATA;
+            scheduler_state = READ_DATA;
             break;
 
         case READ_DATA:
-
+            if (AdcSonarHandle_ReadData(&adcSonar_kData))
+            {
+                /* Data is ready to be send to adafruit io */
+                mqttWriteFlag = true;
+                scheduler_state = SEND_TO_SERVER;
+            }
+            /* ELSE DO NOTHING JUST WAIT HERE */
             break;
 
         case SEND_TO_SERVER:
-
+            /* Check that sending started */
+            if (MqttHandle_DataState == SENDING)
+            {
+                mqttWriteFlag = false;
+                scheduler_state = READ_DATA;
+            }
             break;
 
         case BIND_XADC:
@@ -73,6 +89,7 @@ static void MqttMainRunnable(void)
 
         default:
             break;
+
     }
 }
  
@@ -81,12 +98,14 @@ int main(int argc, char **argv)
     printf("Hello World!, first unbind the Xadc\n");
 
     mqttbroker_state = UNBIND_XADC;
-    endFlag = 0;
+    endFlag = MqttHandle_Init();
 
     while (!endFlag)
     {
-        MqttMainRunnable(); // Update the flag for now the error handler is afterwards
-        usleep(100000);  // 100 ms delay
+        AppScheduler(); // Update the flag for now the error handler is afterwards
+
+        MqttHandle_App(mqttWriteFlag); // Send the data
+        usleep(500000);  // 500 ms delay
     }
 
     return 0;

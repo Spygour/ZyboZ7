@@ -50,6 +50,12 @@ typedef enum
 	XADC_CHECK_STATUS,
 	XADC_CONV_END
 }XADC_KSTATE;
+
+typedef struct
+{
+	float distance;
+	uint32_t version;
+}ADCSONAR_DATA;
 /* Address is 0xf8007100 */
 /* adc: adc@f8007100 {
 	compatible = "xlnx,zynq-xadc-1.00.a";
@@ -68,7 +74,12 @@ static atomic_t xadc_irq_flag = ATOMIC_INIT(0);
 static const char *xadc_dev_string = "xlnx,zynq-xadc-1.00.a";
 static XADC_KSTATE adcSonar_State = XADC_START_CONV;
 static uint16_t adcSonar_RawData;
-static float adcSonar_Distance;
+
+/* Data to send to userspace */
+static ADCSONAR_DATA adcSonar_Data;
+/* Spinlock to avoid race conditions */
+static DEFINE_SPINLOCK(data_lock);
+
 static uint32_t adcSonar_Status;
 
 static XADC_CONFIG_T xadc_Kconfig;
@@ -78,6 +89,15 @@ static struct task_struct *xadc_ktask;
 static struct class *adcsonar_class;
 static struct device *adcsonar_device;
 static int adcsonar_major = 0;
+/* Fops which is used to read and send data to userspace */
+static ssize_t adcSonar_read(struct file *file, char __user *buf,
+                             size_t count, loff_t *ppos);
+
+static const struct file_operations fops = 
+{
+	.owner = THIS_MODULE,
+	.read = adcSonar_read,
+};
 
 /* Functions */
 
@@ -88,6 +108,9 @@ static void Xadc_IrqCb(void)
 
 static void adcSonar_ParamsInit(void)
 {
+
+	adcSonar_Data.distance = 0;
+	adcSonar_Data.version = 0u;
 	/* Enable interrupt and sequence mode */
 	xadc_Kconfig.intr_en = true;
 	xadc_Kconfig.seq_channel_mask = (1U << 14U) | (1U << 7U); /* AUX 14 AND AUX 7 */
@@ -123,6 +146,23 @@ static void adcSonar_ParamsInit(void)
 	xadc_Kconfig.device_string = xadc_dev_string;
 }
 
+static ssize_t adcSonar_read(struct file *file, char __user *buf,
+                             size_t count, loff_t *ppos)
+{
+	ADCSONAR_DATA tmp_data;
+
+	spin_lock(&data_lock);
+	tmp_data.distance = adcSonar_Data.distance;
+	tmp_data.version = adcSonar_Data.version;
+	spin_unlock(&data_lock);
+
+	if (copy_to_user(buf, &tmp_data, sizeof(tmp_data)))
+	{
+		return -EFAULT;
+	}
+	return sizeof(tmp_data);
+}
+
 static int adcSonar_thread(void *data)
 {
 	while (!kthread_should_stop())
@@ -139,16 +179,20 @@ static int adcSonar_thread(void *data)
 				{
 					/* Start from here */
 					adcSonar_RawData = ioread16(Xadc_Base + XADC_VAUX14_RES) >> 4;
-        	adcSonar_Distance = (float)(adcSonar_RawData) * URM09_MAX_DISTANCE/URM09_MAX_RESOLUTION;
-					printk("Distance is %u\n", adcSonar_RawData);
+					spin_lock(&data_lock);
+        	adcSonar_Data.distance = (float)(adcSonar_RawData) * URM09_MAX_DISTANCE/URM09_MAX_RESOLUTION;
+					adcSonar_Data.version++;
+					spin_unlock(&data_lock);
 					Xadc_RestartSequence();
 				}
 				/* Otherwise go to first step */
 				else if (Xadc_GetSeqFlagAndClear())
 				{
 					adcSonar_RawData = ioread16(Xadc_Base + XADC_VAUX14_RES) >> 4;
-        	adcSonar_Distance = (float)(adcSonar_RawData) * URM09_MAX_DISTANCE/URM09_MAX_RESOLUTION;
-					printk("Distance is %u\n", adcSonar_RawData);
+					spin_lock(&data_lock);
+        	adcSonar_Data.distance = (float)(adcSonar_RawData) * URM09_MAX_DISTANCE/URM09_MAX_RESOLUTION;
+					adcSonar_Data.version++;
+					spin_unlock(&data_lock);
 					Xadc_RestartSequence();
 				}
 				adcSonar_State = XADC_CONV_END;
@@ -159,8 +203,10 @@ static int adcSonar_thread(void *data)
 				{
 					/* Handle the data that you took */
 					adcSonar_RawData = ioread16(Xadc_Base + XADC_VAUX14_RES) >> 4;
-        	adcSonar_Distance = (float)(adcSonar_RawData) * URM09_MAX_DISTANCE/URM09_MAX_RESOLUTION;
-					printk("Distance is %u\n", adcSonar_RawData);
+					spin_lock(&data_lock);
+        	adcSonar_Data.distance = (float)(adcSonar_RawData) * URM09_MAX_DISTANCE/URM09_MAX_RESOLUTION;
+					adcSonar_Data.version++;
+					spin_unlock(&data_lock);
 					Xadc_RestartSequence();
 					adcSonar_State = XADC_CONV_END;
 				}

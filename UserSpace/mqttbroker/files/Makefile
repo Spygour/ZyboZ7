@@ -1,7 +1,7 @@
 APP = mqttbroker
 
 # Source files
-SRCS = mqttSender.c XadcHandle/XadcHandle.c AdcSonarHandle/AdcSonarHandle.c
+SRCS = mqttSender.c XadcHandle/XadcHandle.c AdcSonarHandle/AdcSonarHandle.c MqttHandle/MqttHandle.c
 
 # Object files
 APP_OBJS = $(patsubst %.c, %.o, $(SRCS))

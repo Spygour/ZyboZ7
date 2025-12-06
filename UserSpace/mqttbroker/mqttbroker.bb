@@ -12,6 +12,8 @@ SRC_URI = "file://mqttSender.c \
 		 file://AdcSonarHandle/AdcSonarHandle.h \
 		 file://XadcHandle/XadcHandle.c \
 		 file://XadcHandle/XadcHandle.h \
+		 file://MqttHandle/MqttHandle.c \
+		 file"//MqttHandle/MqttHandle.h \
 	   file://Makefile \
 		  "
 
