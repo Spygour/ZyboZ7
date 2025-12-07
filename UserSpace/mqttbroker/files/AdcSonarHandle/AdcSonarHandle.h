@@ -1,15 +1,16 @@
 #ifndef __ADCSONARHANDLE_H
 #define __ADCSONARHANDLE_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+
 
 /* TYPES */
 typedef struct
 {
-  float distance;
-  uint32_t version;
-}ADCSONARHANDLE_DATA;
+    float distance;
+    uint32_t version;
+} ADCSONARHANDLE_DATA;
 
 /* global functions */
 uint8_t AdcSonarHandle_Init(void);

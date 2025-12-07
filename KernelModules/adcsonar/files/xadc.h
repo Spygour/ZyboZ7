@@ -2,10 +2,10 @@
 #define __XADC_H
 
 /* Kernel includes */
-#include <linux/types.h>   /* u32, u16, bool */
-#include <linux/io.h>      /* __iomem */
-/* Includes */
+#include <linux/io.h>    /* __iomem */
+#include <linux/types.h> /* u32, u16, bool */
 
+/* Includes */
 
 /* Definitions */
 #define XADC_RESET_OFFSET 0x00U
@@ -28,7 +28,6 @@
 #define XADC_SEQ_CH_AVG_EN_OFFSET 0x32CU
 #define XADC_SEQ_CH_INPUT_MODE_OFFSET 0x334U
 #define XADC_SEQ_CH_ACQ_TIME_OFFSET 0x33C
-
 
 #define XADC_RESET 0x01U
 #define XADC_GLOBAL_INTR_ENABLE (0x1U << 31)
@@ -67,87 +66,85 @@
 /* Types */
 typedef union
 {
-  struct
-  {
-    uint32_t channel:5;
-    uint32_t reserved1:3;
-    uint32_t settling_time_increase:1;
-    uint32_t event_mode_en:1;
-    uint32_t bibolar_en:1;
-    uint32_t external_mux_en:1;
-    uint32_t averaging_sample:2;
-    uint32_t reserved2:1;
-    uint32_t disable_average:1;
-    uint32_t reserved3:16;
-  }B;
-  uint32_t U;
+    struct
+    {
+        uint32_t channel : 5;
+        uint32_t reserved1 : 3;
+        uint32_t settling_time_increase : 1;
+        uint32_t event_mode_en : 1;
+        uint32_t bibolar_en : 1;
+        uint32_t external_mux_en : 1;
+        uint32_t averaging_sample : 2;
+        uint32_t reserved2 : 1;
+        uint32_t disable_average : 1;
+        uint32_t reserved3 : 16;
+    } B;
+    uint32_t U;
 
-}XADC_CONFIG1_T;
-
-typedef union
-{
-  struct
-  {
-    uint32_t overtemp_alm_dis:1;
-    uint32_t alarms_int_dis:3;
-    uint32_t calib_en:4;
-    uint32_t alarm_int_dis:1;
-    uint32_t alarm_ext_dis:3;
-    uint32_t channel_seq_mode:4;
-    uint32_t reserved:16;
-  }B;
-  uint32_t U;
-}XADC_CONFIG2_T;
+} XADC_CONFIG1_T;
 
 typedef union
 {
-  struct
-  {
-    uint32_t reserved1:4;
-    uint32_t power_down_en:2;
-    uint32_t reserved2:2;
-    uint32_t drp_clk_pre:8;
-    uint32_t reserved3:16;
-  }B;
-  uint32_t U;
-}XADC_CONFIG3_T;
-
-
-typedef struct 
-{
-  XADC_CONFIG1_T config1;
-  XADC_CONFIG2_T config2;
-  XADC_CONFIG3_T config3;
-  uint32_t seq_channel_mask;
-  bool  intr_en;
-  bool  seq_mode_en;
-  void (*irq_handler)(void);
-  uint32_t xadc_base_address; /* Warning this is the base address that you see from vivado side */
-  uint32_t axi_size;
-  const char* device_string;
-}XADC_CONFIG_T;
+    struct
+    {
+        uint32_t overtemp_alm_dis : 1;
+        uint32_t alarms_int_dis : 3;
+        uint32_t calib_en : 4;
+        uint32_t alarm_int_dis : 1;
+        uint32_t alarm_ext_dis : 3;
+        uint32_t channel_seq_mode : 4;
+        uint32_t reserved : 16;
+    } B;
+    uint32_t U;
+} XADC_CONFIG2_T;
 
 typedef union
 {
-  struct
-  {
-    uint32_t channel_id:5;
-    uint32_t conv_end:1;
-    uint32_t end_of_sequence:1;
-    uint32_t adc_busy:1;
-    uint32_t jtag_locked:1;
-    uint32_t jtag_modified:1;
-    uint32_t jtag_busy:1;
-    uint32_t reserved:21;
-  }B;
-  uint32_t U;
-}XADC_STATUS_T;
+    struct
+    {
+        uint32_t reserved1 : 4;
+        uint32_t power_down_en : 2;
+        uint32_t reserved2 : 2;
+        uint32_t drp_clk_pre : 8;
+        uint32_t reserved3 : 16;
+    } B;
+    uint32_t U;
+} XADC_CONFIG3_T;
+
+typedef struct
+{
+    XADC_CONFIG1_T config1;
+    XADC_CONFIG2_T config2;
+    XADC_CONFIG3_T config3;
+    uint32_t seq_channel_mask;
+    bool intr_en;
+    bool seq_mode_en;
+    void (*irq_handler)(void);
+    uint32_t xadc_base_address; /* Warning this is the base address that you see from vivado side */
+    uint32_t axi_size;
+    const char* device_string;
+} XADC_CONFIG_T;
+
+typedef union
+{
+    struct
+    {
+        uint32_t channel_id : 5;
+        uint32_t conv_end : 1;
+        uint32_t end_of_sequence : 1;
+        uint32_t adc_busy : 1;
+        uint32_t jtag_locked : 1;
+        uint32_t jtag_modified : 1;
+        uint32_t jtag_busy : 1;
+        uint32_t reserved : 21;
+    } B;
+    uint32_t U;
+} XADC_STATUS_T;
 
 /* public variables */
-extern void __iomem *Xadc_Base;
+extern void __iomem* Xadc_Base;
 
 /* static functions */
-
 
 /* global functions */
 void Xadc_Init(XADC_CONFIG_T* config);

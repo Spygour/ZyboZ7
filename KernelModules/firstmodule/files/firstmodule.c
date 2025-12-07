@@ -1,15 +1,18 @@
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/gpio.h>
-#include <linux/kthread.h>
 #include <linux/delay.h>
+#include <linux/gpio.h>
+#include <linux/kernel.h>
+#include <linux/kthread.h>
+#include <linux/module.h>
 
-static struct task_struct *thread;
-static int led_gpio0 = 512;  // your GPIO number
-static int led_gpio1 = 513;  // your GPIO number
 
-static int led_thread(void *data) {
-    while (!kthread_should_stop()) {
+static struct task_struct* thread;
+static int led_gpio0 = 512; // your GPIO number
+static int led_gpio1 = 513; // your GPIO number
+
+static int led_thread(void* data)
+{
+    while (!kthread_should_stop())
+    {
         gpio_set_value(led_gpio0, 1);
         gpio_set_value(led_gpio1, 0);
         msleep(1000);
@@ -20,7 +23,8 @@ static int led_thread(void *data) {
     return 0;
 }
 
-static int __init led_init(void) {
+static int __init led_init(void)
+{
     gpio_request(led_gpio0, "first_led");
     gpio_request(led_gpio1, "second_led");
     gpio_direction_output(led_gpio0, 0);
@@ -29,7 +33,8 @@ static int __init led_init(void) {
     return 0;
 }
 
-static void __exit led_exit(void) {
+static void __exit led_exit(void)
+{
     kthread_stop(thread);
     gpio_set_value(led_gpio0, 0);
     gpio_set_value(led_gpio1, 0);

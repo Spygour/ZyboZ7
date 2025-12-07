@@ -38,6 +38,7 @@ typedef enum
     START_XADC_KERNEL,
     READ_DATA,
     SEND_TO_SERVER,
+    PREPARE_READ,
     BIND_XADC
 } MQTT_BROKER_STATE;
 
@@ -65,8 +66,6 @@ static void AppScheduler(void)
         case READ_DATA:
             if (AdcSonarHandle_ReadData(&adcSonar_kData))
             {
-                /* Data is ready to be send to adafruit io */
-                mqttWriteFlag = true;
                 scheduler_state = SEND_TO_SERVER;
             }
             /* ELSE DO NOTHING JUST WAIT HERE */
@@ -74,8 +73,18 @@ static void AppScheduler(void)
 
         case SEND_TO_SERVER:
             /* Check that sending started */
+            if (MqttHandle_DataState == IDLE)
+            {
+                /* Data is ready to be send to adafruit io */
+                mqttWriteFlag = true;
+                scheduler_state = PREPARE_READ;
+            }
+            break;
+
+        case PREPARE_READ:
             if (MqttHandle_DataState == SENDING)
             {
+                /* Data is ready to be send to adafruit io */
                 mqttWriteFlag = false;
                 scheduler_state = READ_DATA;
             }
@@ -105,7 +114,7 @@ int main(int argc, char **argv)
         AppScheduler(); // Update the flag for now the error handler is afterwards
 
         MqttHandle_App(mqttWriteFlag); // Send the data
-        usleep(500000);  // 500 ms delay
+        usleep(200000);  // 200 ms delay
     }
 
     return 0;
