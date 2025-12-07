@@ -76,6 +76,9 @@ static void AppScheduler(void)
             if (MqttHandle_DataState == IDLE)
             {
                 /* Data is ready to be send to adafruit io */
+                /* First Reset and then add the data */
+                MqttHandle_ResetPayload();
+                MqttHandle_AppendPayload(adcSonar_kData.distance);
                 mqttWriteFlag = true;
                 scheduler_state = PREPARE_READ;
             }
@@ -106,7 +109,7 @@ int main(int argc, char **argv)
 {
     printf("Hello World!, first unbind the Xadc\n");
 
-    mqttbroker_state = UNBIND_XADC;
+    scheduler_state = UNBIND_XADC;
     endFlag = MqttHandle_Init();
 
     while (!endFlag)

@@ -69,9 +69,13 @@ static const char server_cert[] = "-----BEGIN CERTIFICATE-----\n"
                                   "...your certificate PEM contents here...\n"
                                   "-----END CERTIFICATE-----\n";
 
-static char publishpayload[] = "1312";
+static char publishpayload[128];
 
-static MQTT_PAYLOAD MqttPayload;
+static MQTT_PAYLOAD MqttPayload = 
+{
+    publishpayload,
+    0
+};
 
 static char MqttTopic[] = "Specify your topic";
 
@@ -101,6 +105,17 @@ typedef struct
 
 static MQTTHANDLE_STATE mqtt_state;
 static MQTTHANDLE_STATE mqtt_nextstate;
+
+void MqttHandle_AppendPayload(float value)
+{
+    uint16_t index = MqttPayload.size;
+    MqttPayload.size += snprintf(&publishpayload[index], sizeof(publishpayload), "%.3f", value);
+}
+
+void MqttHandle_ResetPayload(void)
+{
+    MqttPayload.size = 0U;
+}
 
 static int ssl_init(void)
 {
@@ -244,6 +259,7 @@ int MqttHandle_Init(void)
 {
     mqtt_state = CONNECT;
     mqtt_nextstate = CONNECT;
+    MqttHandle_DataState = INIT;
     MqttHandle_StackInit();
     int status = 0u;
     /* Initialize the ssl*/
@@ -425,7 +441,7 @@ static bool SSL_MqttWriteHandler(unsigned char* buf)
             mqtt_DataInfo.dataRemain -= ret;
         }
     }
-    else if (ret == SSL_ERROR_WANT_READ || ret == SSL_ERROR_WANT_READ)
+    else if (ret == SSL_ERROR_WANT_READ || ret == SSL_ERROR_WANT_WRITE)
     {
         mqtt_DataInfo.writefail++;
     }
@@ -454,7 +470,7 @@ static bool SSL_MqttReadHandler(unsigned char* buf)
             mqtt_DataInfo.dataRemain -= ret;
         }
     }
-    else if (ret == SSL_ERROR_WANT_READ || ret == SSL_ERROR_WANT_READ)
+    else if (ret == SSL_ERROR_WANT_READ || ret == SSL_ERROR_WANT_WRITE)
     {
         mqtt_DataInfo.readfail++;
     }
@@ -484,6 +500,7 @@ void MqttHandle_App(bool isWrite)
     {
         if (SSL_Mqtt_Connack(&mqtt_buffer[0]))
         {
+            MqttHandle_DataState = IDLE;
             mqtt_state = PINGREQ;
         }
         else
@@ -495,11 +512,18 @@ void MqttHandle_App(bool isWrite)
 
     case PINGREQ:
     {
-        mqtt_DataInfo.dataRemain = SSL_Mqtt_PingReq_Create(&mqtt_buffer[0]);
-        mqtt_DataInfo.dataSize = mqtt_DataInfo.dataRemain;
-        mqtt_state = WRITE;
-        mqtt_DataInfo.dataRead = 2;
-        mqtt_nextstate = PINGRESP;
+        if (isWrite == TRUE)
+        {
+            mqtt_state = PUBLISH;
+        }
+        else 
+        {
+            mqtt_DataInfo.dataRemain = SSL_Mqtt_PingReq_Create(&mqtt_buffer[0]);
+            mqtt_DataInfo.dataSize = mqtt_DataInfo.dataRemain;
+            mqtt_state = WRITE;
+            mqtt_DataInfo.dataRead = 2;
+            mqtt_nextstate = PINGRESP;
+        }
     }
     break;
 
@@ -519,6 +543,7 @@ void MqttHandle_App(bool isWrite)
 
     case PUBLISH:
     {
+        MqttHandle_DataState = SENDING;
         mqtt_DataInfo.dataRemain =
             SSL_Mqtt_Publish_CreatePacket(&mqtt_buffer[0], &MqttPayload, MqttTopic, strlen(MqttTopic));
         mqtt_DataInfo.dataSize = mqtt_DataInfo.dataRemain;
@@ -532,6 +557,7 @@ void MqttHandle_App(bool isWrite)
     {
         if (SSL_Mqtt_Puback(&mqtt_buffer[0]))
         {
+            MqttHandle_DataState = IDLE;
             mqtt_state = PINGREQ;
         }
         else

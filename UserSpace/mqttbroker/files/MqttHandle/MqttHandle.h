@@ -60,3 +60,5 @@ extern MQTTHANDLE_DATASTATE MqttHandle_DataState;
 int MqttHandle_Init(void);
 void MqttHandle_DeInit(void);
 void MqttHandle_App(bool isWrite);
+void MqttHandle_AppendPayload(float value);
+void MqttHandle_ResetPayload(void);
