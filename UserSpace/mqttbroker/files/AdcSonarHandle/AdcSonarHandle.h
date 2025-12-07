@@ -8,7 +8,7 @@
 /* TYPES */
 typedef struct
 {
-    float distance;
+    uint32_t distance;
     uint32_t version;
 } ADCSONARHANDLE_DATA;
 

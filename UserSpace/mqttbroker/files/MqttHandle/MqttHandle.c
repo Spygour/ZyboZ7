@@ -38,6 +38,13 @@ typedef struct
     uint16_t size;
 } MQTT_PAYLOAD;
 
+typedef struct
+{
+    uint8_t Type;
+    uint16_t PacketId;
+    uint16_t PayloadSize;
+} MQTT_PUBLISH_CFG;
+
 /* Types */
 typedef enum
 {
@@ -61,13 +68,16 @@ static const int server_port = 8883;                // MQTT port
 /* MQTT DATA */
 /* THS WILL BE EDITED BY A SCRIPT I GUESS */
 const char mqtt_clientName[] = "zyboClient";
-const char mqtt_userName[] = "Specify-Your-Name";
-const char mqtt_password[] = "Specify-Your-Pass";
+const char mqtt_userName[] = "MyName";
+const char mqtt_password[] = "MyPass";
 const char mqtt_protocolAsci[] = "MQTT";
 /* The server CA certificate as a string/array (PEM format) */
-static const char server_cert[] = "-----BEGIN CERTIFICATE-----\n"
-                                  "...your certificate PEM contents here...\n"
-                                  "-----END CERTIFICATE-----\n";
+static const char server_cert[] = 
+"-----BEGIN CERTIFICATE-----\n"
+"MyCert\n"
+"-----END CERTIFICATE-----\n";
+
+static char MqttTopic[] = "MyTopic";
 
 static char publishpayload[128];
 
@@ -76,8 +86,6 @@ static MQTT_PAYLOAD MqttPayload =
     publishpayload,
     0
 };
-
-static char MqttTopic[] = "Specify your topic";
 
 /* MQTT STATIC VARIABLES used for the  initialization and connection */
 static MQTT_CLIENT_ID mqtt_client;
@@ -96,15 +104,15 @@ static MQTT_CONNECT_HEADER mqtt_connectHeader = {
     MQTT_CONNECT_TYPE, {0x0, 0x4}, {'M', 'Q', 'T', 'T'}, MQTT_PROTOCOL_LEVEL, MQTT_CONNECT_FLAG_FULL_CLEAN,
     {0x0, 0x3C} /* 60 Seconds for now */
 };
-typedef struct
-{
-    uint8_t Type;
-    uint16_t PacketId;
-    uint16_t PayloadSize;
-} MQTT_PUBLISH_CFG;
 
+static MQTT_PUBLISH_CFG mqtt_publishCfg = {
+  MQTT_PUBLISH_TYPE_QOS1,
+  0U,
+  0U
+};
 static MQTTHANDLE_STATE mqtt_state;
 static MQTTHANDLE_STATE mqtt_nextstate;
+static MQTT_HANDLER_DATA_INFO mqtt_DataInfo;
 
 void MqttHandle_AppendPayload(float value)
 {
@@ -512,7 +520,7 @@ void MqttHandle_App(bool isWrite)
 
     case PINGREQ:
     {
-        if (isWrite == TRUE)
+        if (isWrite)
         {
             mqtt_state = PUBLISH;
         }

@@ -1,0 +1,15 @@
+[Unit]
+Description=MQTT Broker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/mqttbroker
+Restart=always
+User=root
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=mqttbroker
+
+[Install]
+WantedBy=multi-user.target

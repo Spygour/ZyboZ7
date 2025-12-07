@@ -6,6 +6,9 @@ SRCS = mqttSender.c XadcHandle/XadcHandle.c AdcSonarHandle/AdcSonarHandle.c Mqtt
 # Object files
 APP_OBJS = $(patsubst %.c, %.o, $(SRCS))
 
+# Link OpenSSL
+LDLIBS = -lssl -lcrypto
+
 all: build
 
 build: $(APP)

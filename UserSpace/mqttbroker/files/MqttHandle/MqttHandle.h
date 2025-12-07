@@ -1,5 +1,6 @@
 /* Definitions */
 #include <stdint.h>
+#include <stdbool.h>
 
 /* Types */
 typedef enum

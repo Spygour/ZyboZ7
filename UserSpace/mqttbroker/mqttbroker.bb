@@ -13,17 +13,20 @@ SRC_URI = "file://mqttSender.c \
 		 file://XadcHandle/XadcHandle.c \
 		 file://XadcHandle/XadcHandle.h \
 		 file://MqttHandle/MqttHandle.c \
-		 file"//MqttHandle/MqttHandle.h \
+		 file://MqttHandle/MqttHandle.h \
 	   file://Makefile \
 		  "
 
 S = "${WORKDIR}"
+
+DEPENDS += "openssl"
 
 do_compile() {
 	     oe_runmake
 }
 
 do_install() {
-	     install -d ${D}${bindir}
-	     install -m 0755 mqttbroker ${D}${bindir}
+    install -d ${D}${bindir}
+    install -m 0755 mqttbroker ${D}${bindir}
 }
+

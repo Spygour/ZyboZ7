@@ -32,6 +32,9 @@
 #include "XadcHandle/XadcHandle.h"
 #include "MqttHandle/MqttHandle.h"
 
+#define URM09_MAX_RESOLUTION 4095
+#define URM09_MAX_DISTANCE 520
+
 typedef enum 
 {
     UNBIND_XADC,
@@ -43,6 +46,7 @@ typedef enum
 } MQTT_BROKER_STATE;
 
 static bool mqttWriteFlag = false;
+static float adcSonar_DistanceActl = 0;
 static MQTT_BROKER_STATE scheduler_state = UNBIND_XADC;
 static ADCSONARHANDLE_DATA adcSonar_kData;
 static uint8_t endFlag = 0;
@@ -52,7 +56,7 @@ static void AppScheduler(void)
     switch(scheduler_state)
     {
         case UNBIND_XADC:
-            adcSonar_kData.distance = 0;
+            adcSonar_kData.distance = 0u;
             adcSonar_kData.version = 0u;
             endFlag = XadcUnbindDriver();
             scheduler_state = START_XADC_KERNEL;
@@ -66,6 +70,7 @@ static void AppScheduler(void)
         case READ_DATA:
             if (AdcSonarHandle_ReadData(&adcSonar_kData))
             {
+                adcSonar_DistanceActl = (float)(adcSonar_kData.distance)*URM09_MAX_DISTANCE / URM09_MAX_RESOLUTION;
                 scheduler_state = SEND_TO_SERVER;
             }
             /* ELSE DO NOTHING JUST WAIT HERE */
@@ -78,7 +83,7 @@ static void AppScheduler(void)
                 /* Data is ready to be send to adafruit io */
                 /* First Reset and then add the data */
                 MqttHandle_ResetPayload();
-                MqttHandle_AppendPayload(adcSonar_kData.distance);
+                MqttHandle_AppendPayload(adcSonar_DistanceActl);
                 mqttWriteFlag = true;
                 scheduler_state = PREPARE_READ;
             }
