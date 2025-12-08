@@ -61,7 +61,7 @@ typedef enum
 /* --- Static/global variables --- */
 static SSL_CTX* ssl_ctx = NULL;                     // OpenSSL context
 static SSL* ssl_handle = NULL;                      // SSL session
-static int sock = -1;                               // TCP socket
+static int adafruitIo_sock = -1;                    // TCP socket
 static const char* server_host = "io.adafruit.com"; // Server hostname
 static const int server_port = 8883;                // MQTT port
 
@@ -72,20 +72,15 @@ const char mqtt_userName[] = "MyName";
 const char mqtt_password[] = "MyPass";
 const char mqtt_protocolAsci[] = "MQTT";
 /* The server CA certificate as a string/array (PEM format) */
-static const char server_cert[] = 
-"-----BEGIN CERTIFICATE-----\n"
-"MyCert\n"
-"-----END CERTIFICATE-----\n";
+static const char server_cert[] = "-----BEGIN CERTIFICATE-----\n"
+                                  "MyCert\n"
+                                  "-----END CERTIFICATE-----\n";
 
 static char MqttTopic[] = "MyTopic";
 
 static char publishpayload[128];
 
-static MQTT_PAYLOAD MqttPayload = 
-{
-    publishpayload,
-    0
-};
+static MQTT_PAYLOAD MqttPayload = {publishpayload, 0};
 
 /* MQTT STATIC VARIABLES used for the  initialization and connection */
 static MQTT_CLIENT_ID mqtt_client;
@@ -105,11 +100,7 @@ static MQTT_CONNECT_HEADER mqtt_connectHeader = {
     {0x0, 0x3C} /* 60 Seconds for now */
 };
 
-static MQTT_PUBLISH_CFG mqtt_publishCfg = {
-  MQTT_PUBLISH_TYPE_QOS1,
-  0U,
-  0U
-};
+static MQTT_PUBLISH_CFG mqtt_publishCfg = {MQTT_PUBLISH_TYPE_QOS1, 0U, 0U};
 static MQTTHANDLE_STATE mqtt_state;
 static MQTTHANDLE_STATE mqtt_nextstate;
 static MQTT_HANDLER_DATA_INFO mqtt_DataInfo;
@@ -120,10 +111,7 @@ void MqttHandle_AppendPayload(float value)
     MqttPayload.size += snprintf(&publishpayload[index], sizeof(publishpayload), "%.3f", value);
 }
 
-void MqttHandle_ResetPayload(void)
-{
-    MqttPayload.size = 0U;
-}
+void MqttHandle_ResetPayload(void) { MqttPayload.size = 0U; }
 
 static int ssl_init(void)
 {
@@ -144,6 +132,17 @@ static int ssl_init(void)
         return -1;
     }
 
+    SSL_CTX_set_min_proto_version(ssl_ctx, TLS1_2_VERSION);
+    SSL_CTX_set_options(ssl_ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
+    SSL_CTX_set_verify_depth(ssl_ctx, 5);
+
+    X509_VERIFY_PARAM* vparam = SSL_CTX_get0_param(ssl_ctx);
+    X509_VERIFY_PARAM_set_hostflags(vparam, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
+    if (!X509_VERIFY_PARAM_set1_host(vparam, server_host, 0))
+    {
+        fprintf(stderr, "set1_host failed\n");
+    }
+
     /* Load the server CA certificate from memory */
     cert_bio = BIO_new_mem_buf(server_cert, -1);
     if (!cert_bio)
@@ -152,20 +151,17 @@ static int ssl_init(void)
         return -1;
     }
 
-    cert = PEM_read_bio_X509(cert_bio, NULL, 0, NULL);
-    if (!cert)
+    /* Load ALL certificates in the PEM (root + intermediate) */
+    X509_STORE* store = SSL_CTX_get_cert_store(ssl_ctx);
+    while ((cert = PEM_read_bio_X509(cert_bio, NULL, 0, NULL)) != NULL)
     {
-        fprintf(stderr, "PEM_read_bio_X509 failed\n");
-        BIO_free(cert_bio);
-        return -1;
+        if (!X509_STORE_add_cert(store, cert))
+        {
+            /* Ignore duplicates */
+        }
+        X509_free(cert);
     }
-
-    /* Set certificate as trusted CA */
-    X509_STORE_add_cert(SSL_CTX_get_cert_store(ssl_ctx), cert);
-
-    BIO_free(cert_bio);
-    X509_free(cert);
-
+    BIO_free(bio);
     /* Optional: enforce verification */
     SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL);
 
@@ -177,8 +173,8 @@ static int tcp_connect(void)
     struct sockaddr_in server_addr;
     struct hostent* host;
 
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0)
+    adafruitIo_sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (adafruitIo_sock < 0)
     {
         perror("socket");
         return -1;
@@ -188,7 +184,7 @@ static int tcp_connect(void)
     if (!host)
     {
         fprintf(stderr, "gethostbyname failed\n");
-        close(sock);
+        close(adafruitIo_sock);
         return -1;
     }
 
@@ -197,10 +193,10 @@ static int tcp_connect(void)
     server_addr.sin_port = htons(server_port);
     memcpy(&server_addr.sin_addr.s_addr, host->h_addr, host->h_length);
 
-    if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0)
+    if (connect(adafruitIo_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0)
     {
         perror("connect");
-        close(sock);
+        close(adafruitIo_sock);
         return -1;
     }
 
@@ -217,7 +213,11 @@ static int ssl_handshake(void)
     }
 
     /* Attach SSL to the existing socket */
-    SSL_set_fd(ssl_handle, sock);
+    SSL_set_fd(ssl_handle, adafruitIo_sock);
+    if (!SSL_set_tlsext_host_name(ssl_handle, server_host))
+    {
+        fprintf(stderr, "SNI set failed\n");
+    }
 
     if (SSL_connect(ssl_handle) <= 0)
     {
@@ -524,7 +524,7 @@ void MqttHandle_App(bool isWrite)
         {
             mqtt_state = PUBLISH;
         }
-        else 
+        else
         {
             mqtt_DataInfo.dataRemain = SSL_Mqtt_PingReq_Create(&mqtt_buffer[0]);
             mqtt_DataInfo.dataSize = mqtt_DataInfo.dataRemain;
