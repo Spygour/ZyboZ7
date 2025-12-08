@@ -119,50 +119,63 @@ static int ssl_init(void)
     BIO* cert_bio = NULL;
     X509* cert = NULL;
 
-    /* Initialize OpenSSL */
+    /* Initialize OpenSSL (older APIs — acceptable for many builds) */
     SSL_library_init();
     SSL_load_error_strings();
     OpenSSL_add_all_algorithms();
 
     /* Create SSL context */
     ssl_ctx = SSL_CTX_new(TLS_client_method());
-    if (!ssl_ctx)
-    {
+    if (!ssl_ctx) {
         fprintf(stderr, "SSL_CTX_new failed\n");
         return -1;
     }
 
     SSL_CTX_set_min_proto_version(ssl_ctx, TLS1_2_VERSION);
     SSL_CTX_set_options(ssl_ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
+
+    /* If you need the TLS1.2 cipher specifically: */
+    if (!SSL_CTX_set_cipher_list(ssl_ctx, "ECDHE-RSA-AES256-GCM-SHA384")) {
+        fprintf(stderr, "Warning: setting cipher list failed\n");
+    }
+
     SSL_CTX_set_verify_depth(ssl_ctx, 5);
 
     X509_VERIFY_PARAM* vparam = SSL_CTX_get0_param(ssl_ctx);
     X509_VERIFY_PARAM_set_hostflags(vparam, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
-    if (!X509_VERIFY_PARAM_set1_host(vparam, server_host, 0))
-    {
-        fprintf(stderr, "set1_host failed\n");
+    if (!X509_VERIFY_PARAM_set1_host(vparam, server_host, 0)) {
+        fprintf(stderr, "Warning: X509_VERIFY_PARAM_set1_host failed\n");
     }
 
-    /* Load the server CA certificate from memory */
-    cert_bio = BIO_new_mem_buf(server_cert, -1);
-    if (!cert_bio)
-    {
+    /* Preferred: let OpenSSL use default paths (system CA bundle) */
+    if (!SSL_CTX_set_default_verify_paths(ssl_ctx)) {
+        /* Not fatal — you can fall back to loading memory CA */
+        fprintf(stderr, "Warning: SSL_CTX_set_default_verify_paths failed\n");
+    }
+
+    /* If you still want to load CA(s) from memory (server_cert contains one or several PEM certs): */
+    cert_bio = BIO_new_mem_buf((void*)server_cert, (int)strlen(server_cert));
+    if (!cert_bio) {
         fprintf(stderr, "BIO_new_mem_buf failed\n");
+        SSL_CTX_free(ssl_ctx);
         return -1;
     }
 
-    /* Load ALL certificates in the PEM (root + intermediate) */
     X509_STORE* store = SSL_CTX_get_cert_store(ssl_ctx);
-    while ((cert = PEM_read_bio_X509(cert_bio, NULL, 0, NULL)) != NULL)
-    {
-        if (!X509_STORE_add_cert(store, cert))
-        {
-            /* Ignore duplicates */
+    while ((cert = PEM_read_bio_X509(cert_bio, NULL, 0, NULL)) != NULL) {
+        if (!X509_STORE_add_cert(store, cert)) {
+            /* X509_STORE_add_cert returns 0 on error (often duplicate) */
+            unsigned long err = ERR_get_error();
+            /* ignore duplicates, but you can log if it's a different error */
+            if (ERR_REASON_ERROR_STRING(err)) {
+                /* optional: log reason */
+            }
         }
         X509_free(cert);
     }
-    BIO_free(bio);
-    /* Optional: enforce verification */
+    BIO_free(cert_bio);
+
+    /* Enforce verification */
     SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL);
 
     return ret;
@@ -206,27 +219,32 @@ static int tcp_connect(void)
 static int ssl_handshake(void)
 {
     ssl_handle = SSL_new(ssl_ctx);
-    if (!ssl_handle)
-    {
+    if (!ssl_handle) {
         fprintf(stderr, "SSL_new failed\n");
         return -1;
     }
 
-    /* Attach SSL to the existing socket */
     SSL_set_fd(ssl_handle, adafruitIo_sock);
-    if (!SSL_set_tlsext_host_name(ssl_handle, server_host))
-    {
+
+    if (!SSL_set_tlsext_host_name(ssl_handle, server_host)) {
         fprintf(stderr, "SNI set failed\n");
     }
 
-    if (SSL_connect(ssl_handle) <= 0)
-    {
+    if (SSL_connect(ssl_handle) <= 0) {
         fprintf(stderr, "SSL_connect failed\n");
         ERR_print_errors_fp(stderr);
         return -1;
     }
 
+    long vr = SSL_get_verify_result(ssl_handle);
+    if (vr != X509_V_OK) {
+        fprintf(stderr, "Certificate verify failed: %s\n", X509_verify_cert_error_string(vr));
+        /* optionally cleanup ssl_handle */
+        return -1;
+    }
+
     printf("Connected with %s encryption\n", SSL_get_cipher(ssl_handle));
+    
     return 0;
 }
 
