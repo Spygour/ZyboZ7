@@ -5,6 +5,7 @@
 #include <netdb.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
+#include <openssl/x509v3.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -61,26 +62,31 @@ typedef enum
 /* --- Static/global variables --- */
 static SSL_CTX* ssl_ctx = NULL;                     // OpenSSL context
 static SSL* ssl_handle = NULL;                      // SSL session
-static int adafruitIo_sock = -1;                    // TCP socket
+static int adafruitIo_sock = -1;                               // TCP socket
 static const char* server_host = "io.adafruit.com"; // Server hostname
 static const int server_port = 8883;                // MQTT port
 
 /* MQTT DATA */
 /* THS WILL BE EDITED BY A SCRIPT I GUESS */
-const char mqtt_clientName[] = "zyboClient";
-const char mqtt_userName[] = "MyName";
-const char mqtt_password[] = "MyPass";
+const char mqtt_clientName[] = "myClient";
+const char mqtt_userName[] = "myName";
+const char mqtt_password[] = "myPass";
 const char mqtt_protocolAsci[] = "MQTT";
 /* The server CA certificate as a string/array (PEM format) */
-static const char server_cert[] = "-----BEGIN CERTIFICATE-----\n"
-                                  "MyCert\n"
-                                  "-----END CERTIFICATE-----\n";
-
-static char MqttTopic[] = "MyTopic";
+const char *server_cert =
+"-----BEGIN CERTIFICATE-----\n"
+"my cert \n"
+"-----END CERTIFICATE-----\n";
 
 static char publishpayload[128];
 
-static MQTT_PAYLOAD MqttPayload = {publishpayload, 0};
+static MQTT_PAYLOAD MqttPayload = 
+{
+    publishpayload,
+    0
+};
+
+static char MqttTopic[] = "myTopic";
 
 /* MQTT STATIC VARIABLES used for the  initialization and connection */
 static MQTT_CLIENT_ID mqtt_client;
@@ -115,16 +121,9 @@ void MqttHandle_ResetPayload(void) { MqttPayload.size = 0U; }
 
 static int ssl_init(void)
 {
-    int ret = 0;
     BIO* cert_bio = NULL;
     X509* cert = NULL;
 
-    /* Initialize OpenSSL (older APIs — acceptable for many builds) */
-    SSL_library_init();
-    SSL_load_error_strings();
-    OpenSSL_add_all_algorithms();
-
-    /* Create SSL context */
     ssl_ctx = SSL_CTX_new(TLS_client_method());
     if (!ssl_ctx) {
         fprintf(stderr, "SSL_CTX_new failed\n");
@@ -134,26 +133,20 @@ static int ssl_init(void)
     SSL_CTX_set_min_proto_version(ssl_ctx, TLS1_2_VERSION);
     SSL_CTX_set_options(ssl_ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
 
-    /* If you need the TLS1.2 cipher specifically: */
-    if (!SSL_CTX_set_cipher_list(ssl_ctx, "ECDHE-RSA-AES256-GCM-SHA384")) {
-        fprintf(stderr, "Warning: setting cipher list failed\n");
-    }
+    /* Cipher preference (optional) */
+    SSL_CTX_set_cipher_list(ssl_ctx, "ECDHE-RSA-AES256-GCM-SHA384");
+
+    /* Hostname verification on context */
+    X509_VERIFY_PARAM* vparam = SSL_CTX_get0_param(ssl_ctx);
+    X509_VERIFY_PARAM_set_hostflags(vparam, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
+    X509_VERIFY_PARAM_set1_host(vparam, server_host, 0);
 
     SSL_CTX_set_verify_depth(ssl_ctx, 5);
 
-    X509_VERIFY_PARAM* vparam = SSL_CTX_get0_param(ssl_ctx);
-    X509_VERIFY_PARAM_set_hostflags(vparam, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
-    if (!X509_VERIFY_PARAM_set1_host(vparam, server_host, 0)) {
-        fprintf(stderr, "Warning: X509_VERIFY_PARAM_set1_host failed\n");
-    }
+    /* Use system CA bundle (recommended) */
+    SSL_CTX_set_default_verify_paths(ssl_ctx);
 
-    /* Preferred: let OpenSSL use default paths (system CA bundle) */
-    if (!SSL_CTX_set_default_verify_paths(ssl_ctx)) {
-        /* Not fatal — you can fall back to loading memory CA */
-        fprintf(stderr, "Warning: SSL_CTX_set_default_verify_paths failed\n");
-    }
-
-    /* If you still want to load CA(s) from memory (server_cert contains one or several PEM certs): */
+    /* Add embedded CA certificate(s) */
     cert_bio = BIO_new_mem_buf((void*)server_cert, (int)strlen(server_cert));
     if (!cert_bio) {
         fprintf(stderr, "BIO_new_mem_buf failed\n");
@@ -164,21 +157,14 @@ static int ssl_init(void)
     X509_STORE* store = SSL_CTX_get_cert_store(ssl_ctx);
     while ((cert = PEM_read_bio_X509(cert_bio, NULL, 0, NULL)) != NULL) {
         if (!X509_STORE_add_cert(store, cert)) {
-            /* X509_STORE_add_cert returns 0 on error (often duplicate) */
-            unsigned long err = ERR_get_error();
-            /* ignore duplicates, but you can log if it's a different error */
-            if (ERR_REASON_ERROR_STRING(err)) {
-                /* optional: log reason */
-            }
+            /* ignore duplicates */
         }
         X509_free(cert);
     }
     BIO_free(cert_bio);
 
-    /* Enforce verification */
     SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL);
-
-    return ret;
+    return 0;
 }
 
 static int tcp_connect(void)
@@ -187,15 +173,21 @@ static int tcp_connect(void)
     struct hostent* host;
 
     adafruitIo_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (adafruitIo_sock < 0)
-    {
+    if (adafruitIo_sock < 0) {
         perror("socket");
         return -1;
     }
 
-    host = gethostbyname(server_host);
-    if (!host)
+    // Enable TCP keep-alive
+    int yes = 1;
+    if (setsockopt(adafruitIo_sock, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes)) < 0)
     {
+        perror("setsockopt SO_KEEPALIVE");
+        // not fatal, can continue
+    }
+
+    host = gethostbyname(server_host);
+    if (!host) {
         fprintf(stderr, "gethostbyname failed\n");
         close(adafruitIo_sock);
         return -1;
@@ -206,8 +198,7 @@ static int tcp_connect(void)
     server_addr.sin_port = htons(server_port);
     memcpy(&server_addr.sin_addr.s_addr, host->h_addr, host->h_length);
 
-    if (connect(adafruitIo_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0)
-    {
+    if (connect(adafruitIo_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         perror("connect");
         close(adafruitIo_sock);
         return -1;
@@ -225,10 +216,12 @@ static int ssl_handshake(void)
     }
 
     SSL_set_fd(ssl_handle, adafruitIo_sock);
+    SSL_set_tlsext_host_name(ssl_handle, server_host);
 
-    if (!SSL_set_tlsext_host_name(ssl_handle, server_host)) {
-        fprintf(stderr, "SNI set failed\n");
-    }
+    /* Alternative (modern) hostname verification method:
+     *  SSL_set1_host(ssl_handle, server_host);
+     *  SSL_set_hostflags(ssl_handle, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
+    */
 
     if (SSL_connect(ssl_handle) <= 0) {
         fprintf(stderr, "SSL_connect failed\n");
@@ -238,28 +231,64 @@ static int ssl_handshake(void)
 
     long vr = SSL_get_verify_result(ssl_handle);
     if (vr != X509_V_OK) {
-        fprintf(stderr, "Certificate verify failed: %s\n", X509_verify_cert_error_string(vr));
-        /* optionally cleanup ssl_handle */
+        fprintf(stderr, "Certificate verify failed: %s\n",
+                X509_verify_cert_error_string(vr));
         return -1;
     }
 
     printf("Connected with %s encryption\n", SSL_get_cipher(ssl_handle));
-    
     return 0;
 }
 
-static int ssl_write_data(const char* buf, int len)
+
+int ssl_write_data(const char* buf, int len)
 {
-    if (!ssl_handle)
+    if (!ssl_handle) return -1;
+
+    int ret = SSL_write(ssl_handle, buf, len);
+    if (ret <= 0) {
+        int err = SSL_get_error(ssl_handle, ret);
+        switch (err) {
+            case SSL_ERROR_ZERO_RETURN:  fprintf(stderr,"TLS closed by peer\n"); break;
+            case SSL_ERROR_WANT_READ:
+            case SSL_ERROR_WANT_WRITE:   return -2; // retryable
+            case SSL_ERROR_SYSCALL:      perror("SSL_write syscall error"); break;
+            case SSL_ERROR_SSL:           ERR_print_errors_fp(stderr); break;
+        }
         return -1;
-    return SSL_write(ssl_handle, buf, len);
+    }
+    return ret;
 }
 
-static int ssl_read_data(char* buf, int max_len)
+int ssl_read_data(char* buf, int max_len)
 {
-    if (!ssl_handle)
-        return -1;
-    return SSL_read(ssl_handle, buf, max_len);
+    if (!ssl_handle) return -1;
+
+    int ret = SSL_read(ssl_handle, buf, max_len);
+    if (ret <= 0) {
+        int err = SSL_get_error(ssl_handle, ret);
+        switch (err) {
+            case SSL_ERROR_ZERO_RETURN:
+                fprintf(stderr, "TLS connection closed by peer\n");
+                return 0; // connection closed gracefully
+            case SSL_ERROR_WANT_READ:
+            case SSL_ERROR_WANT_WRITE:
+                // retryable
+                return -2;
+            case SSL_ERROR_SYSCALL:
+                perror("SSL_read syscall error");
+                ERR_print_errors_fp(stderr);
+                return -3;
+            case SSL_ERROR_SSL:
+                fprintf(stderr, "SSL_read library error\n");
+                ERR_print_errors_fp(stderr);
+                return -4;
+            default:
+                fprintf(stderr, "SSL_read unknown error: %d\n", err);
+                return -5;
+        }
+    }
+    return ret; // number of bytes read
 }
 
 static void MqttHandle_StackInit(void)
@@ -306,10 +335,10 @@ void MqttHandle_DeInit(void)
         SSL_free(ssl_handle);
         ssl_handle = NULL;
     }
-    if (sock >= 0)
+    if (adafruitIo_sock >= 0)
     {
-        close(sock);
-        sock = -1;
+        close(adafruitIo_sock);
+        adafruitIo_sock = -1;
     }
     if (ssl_ctx)
     {

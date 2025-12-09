@@ -27,6 +27,8 @@
  */
 
 #include "AdcSonarHandle.h"
+#include <stdlib.h>   // <-- add this for system()
+#include <stdio.h>    // for snprintf
 #include <fcntl.h>   // for open
 #include <stdbool.h> // for bool
 #include <stdint.h>  // for uint32_t, etc.
