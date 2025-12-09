@@ -34,22 +34,34 @@
 
 /* Static variables */
 static char *XadcDev = "f8007100.adc";
+static char *XadcPath = "/sys/bus/platform/drivers/xadc/f8007100.adc";
 /* public variables */
 
 /* global functions */
 uint8_t XadcUnbindDriver(void)
 {
-    int fd = open("/sys/bus/platform/drivers/xadc/unbind", O_WRONLY);
-    if(fd < 0) { perror("open"); return 1; }
+    uint8_t status = 0;
+    if ((access(XadcPath, F_OK) == 0))
+    {
+        /* Xadc is bind lets unbind*/
+        printf("Module is active, unbind... \n");
+        int fd = open("/sys/bus/platform/drivers/xadc/unbind", O_WRONLY);
+        if(fd < 0) { perror("open"); return 1; }
 
-    if(write(fd, XadcDev, strlen(XadcDev)) < 0) {
-        perror("write");
-        return 1;
+        if(write(fd, XadcDev, strlen(XadcDev)) < 0) {
+            close(fd);
+            perror("write");
+            return 1;
+        }
+        close(fd);
+        printf("Unbound xadc\n");
+        status = 0;
     }
-
-    close(fd);
-    printf("Unbound xadc\n");
-    return 0;
+    else {
+        printf("Module is already unbind \n");
+        status = 0;
+    }
+    return status;
 }
 
 uint8_t XadcBindDriver(void)

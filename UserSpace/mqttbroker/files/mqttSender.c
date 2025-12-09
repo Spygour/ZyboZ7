@@ -27,6 +27,8 @@
 */
 
 #include <stdio.h>
+#include <signal.h>
+#include <stdlib.h>   // <-- add this for system()
 #include <unistd.h>
 #include "AdcSonarHandle/AdcSonarHandle.h"
 #include "XadcHandle/XadcHandle.h"
@@ -41,8 +43,7 @@ typedef enum
     START_XADC_KERNEL,
     READ_DATA,
     SEND_TO_SERVER,
-    PREPARE_READ,
-    BIND_XADC
+    PREPARE_READ
 } MQTT_BROKER_STATE;
 
 static bool mqttWriteFlag = false;
@@ -50,6 +51,7 @@ static float adcSonar_DistanceActl = 0;
 static MQTT_BROKER_STATE scheduler_state = UNBIND_XADC;
 static ADCSONARHANDLE_DATA adcSonar_kData;
 static uint8_t endFlag = 0;
+
 
 static void AppScheduler(void)
 {
@@ -98,21 +100,34 @@ static void AppScheduler(void)
             }
             break;
 
-        case BIND_XADC:
-            (void)AdcSonarHandle_DeInit();
-            (void)XadcBindDriver();
-            endFlag = 1; // End the program here please
-            break;
-
         default:
             break;
 
     }
 }
+
+void handle_sigint(int sig)
+{
+    /* Reset the payload */
+    MqttHandle_ResetPayload();
+    /* DeInit kernel module */
+    (void)AdcSonarHandle_DeInit();
+    /* DeInit the mqtt stuck and connection */
+    (void)MqttHandle_DeInit();
+
+    exit(0); // exit the process safely
+}
  
 int main(int argc, char **argv)
 {
     printf("Hello World!, first unbind the Xadc\n");
+    signal(SIGINT, handle_sigint);
+
+    /* Sync time from the internet */
+    system("ntpdate -u pool.ntp.org");
+
+    /* Optional: check time */
+    system("date");
 
     scheduler_state = UNBIND_XADC;
     endFlag = MqttHandle_Init();
