@@ -33,7 +33,7 @@
 #include <string.h>
 
 /* Static variables */
-static char *XadcDev = "MyDev";
+static char *XadcDev = "f8007100.adc";
 /* public variables */
 
 /* global functions */
