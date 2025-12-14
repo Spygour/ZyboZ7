@@ -254,6 +254,18 @@ static void __exit adcsonar_exit(void)
         kthread_stop(xadc_ktask);
     }
     Xadc_DeInit();
+
+    
+    /* Destroy device and class */
+    if (adcsonar_device)
+        device_destroy(adcsonar_class, MKDEV(adcsonar_major, 0));
+
+    if (adcsonar_class)
+        class_destroy(adcsonar_class);
+
+    /* Unregister char device */
+    if (adcsonar_major > 0)
+        unregister_chrdev(adcsonar_major, DRIVER_NAME);
 }
 
 module_init(adcsonar_init);
