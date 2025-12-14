@@ -43,7 +43,8 @@ typedef enum
     START_XADC_KERNEL,
     READ_DATA,
     SEND_TO_SERVER,
-    PREPARE_READ
+    PREPARE_READ,
+    FINISH_SEND
 } MQTT_BROKER_STATE;
 
 static bool mqttWriteFlag = false;
@@ -51,6 +52,7 @@ static float adcSonar_DistanceActl = 0;
 static MQTT_BROKER_STATE scheduler_state = UNBIND_XADC;
 static ADCSONARHANDLE_DATA adcSonar_kData;
 static uint8_t endFlag = 0;
+static bool scheduler_delayEn = false;
 
 
 static void AppScheduler(void)
@@ -58,6 +60,7 @@ static void AppScheduler(void)
     switch(scheduler_state)
     {
         case UNBIND_XADC:
+            scheduler_delayEn = false;
             adcSonar_kData.distance = 0u;
             adcSonar_kData.version = 0u;
             endFlag = XadcUnbindDriver();
@@ -96,6 +99,15 @@ static void AppScheduler(void)
             {
                 /* Data is ready to be send to adafruit io */
                 mqttWriteFlag = false;
+                scheduler_state = FINISH_SEND;
+            }
+            break;
+
+        case FINISH_SEND:
+            if (MqttHandle_DataState == IDLE)
+            {
+                /* Data is sent to adafruit io */
+                scheduler_delayEn = true;
                 scheduler_state = READ_DATA;
             }
             break;
@@ -137,7 +149,16 @@ int main(int argc, char **argv)
         AppScheduler(); // Update the flag for now the error handler is afterwards
 
         MqttHandle_App(mqttWriteFlag); // Send the data
-        usleep(200000);  // 200 ms delay
+
+        if (scheduler_delayEn)
+        {
+            scheduler_delayEn = false;
+            usleep(2000000);
+        }
+        else 
+        {
+            usleep(100000);
+        }
     }
 
     return 0;
