@@ -21,8 +21,6 @@ module Tim (
   /* Interrupt internal */
   wire Interrupt_Wire;
 
-  /* Synchronizer signals */
-  reg Input_sync1, Input_sync2;
   /* Input capture previous and current */
   reg Input_current;
   reg Input_prev;
@@ -49,16 +47,10 @@ module Tim (
 
   assign OverflowWarn = &count;
 
-  /* Edge synchro */
-  always @(posedge Clk) begin
-    Input_sync1 <= Input;
-    Input_sync2 <= Input_sync1;
-  end
-
   /* Edge tracking */
   always @(posedge Clk) begin
     Input_prev <= Input_current;
-    Input_current <= Input_sync2;
+    Input_current <= Input;
   end
 
   always @(posedge Clk) begin
@@ -184,7 +176,7 @@ module Tim (
   /* Extra information about the current edge we are */
   always @(posedge Clk) begin
     if (!Reset_n) begin
-      EdgeType <= Input_sync2;
+      EdgeType <= Input;
     end else begin
       if (RisingEdge_Res) begin
         EdgeType <= 1'b1;

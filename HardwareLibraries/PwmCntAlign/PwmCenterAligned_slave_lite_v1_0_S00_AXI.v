@@ -395,6 +395,7 @@ module PwmCenterAligned_slave_lite_v1_0_S00_AXI #(
     end
   end
 
+  wire Interrupt_Port;
   // Implement State Handler
   always @(posedge S_AXI_ACLK) begin
     if (S_AXI_ARESETN == 1'b0) begin
