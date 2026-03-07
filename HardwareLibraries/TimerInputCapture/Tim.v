@@ -25,6 +25,9 @@ module Tim (
   reg Input_current;
   reg Input_prev;
 
+  /* Overflow warning register */
+  reg OverflowWarn_reg;
+
   /* Mode results */
   wire RisingEdge_Res;
   wire FallingEgde_Res;
@@ -45,7 +48,7 @@ module Tim (
 
   assign BothEdges_Res = ((Input_current) != (Input_prev));
 
-  assign OverflowWarn = &count;
+  assign OverflowWarn = OverflowWarn_reg;
 
   /* Edge tracking */
   always @(posedge Clk) begin
@@ -55,12 +58,22 @@ module Tim (
 
   always @(posedge Clk) begin
     if (!Reset_n) begin
+      OverflowWarn_reg <= 1'b0;
+    end else if (Enable && (count == 64'hFFFF_FFFF_FFFF_FFFF)) begin
+      OverflowWarn_reg <= 1'b1;
+    end
+  end 
+
+
+  always @(posedge Clk) begin
+    if (!Reset_n) begin
       count <= 64'd0;
       Result1 <= 32'd0;
       Result2 <= 32'd0;
       Prescaler_Cnt <= 32'd0;
       edge_counterState <= END_COUNTER;
       fall_counterState <= END_COUNTER;
+      Interrupt_Active <= 1'b0;
     end else if (Enable) begin
       case (Mode_Internal)
         3'b001 : /* Rising edge */
