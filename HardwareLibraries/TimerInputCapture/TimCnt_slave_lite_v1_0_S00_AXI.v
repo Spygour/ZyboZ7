@@ -414,7 +414,7 @@
       .Result1          (slv_reg2),
 			.Result2          (slv_reg3),
 			.EdgeType         (slv_reg4[0]),
-			.OverflowWarn     (slv_reg4[1]), // register 5 bit 0 clear interrupt
+			.OverflowWarn     (slv_reg4[1]),
       .Interrupt_Active (Interrupt_Port)
   );
 

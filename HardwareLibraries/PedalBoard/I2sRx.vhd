@@ -49,7 +49,7 @@ ARCHITECTURE arch_imp OF I2sRx IS
 
 	SIGNAL lrclk_prev_reg : STD_LOGIC;
 	SIGNAL lrclk_cur_reg : STD_LOGIC;
-    SIGNAL sclk_prev_reg : STD_LOGIC;
+	SIGNAL sclk_prev_reg : STD_LOGIC;
 	SIGNAL sclk_cur_reg : STD_LOGIC;
 
 	SIGNAL I2sReceive_DataIn : STD_LOGIC_VECTOR(C_S_AXIS_TDATA_WIDTH - 1 DOWNTO 0);
@@ -88,11 +88,11 @@ BEGIN
 				lrclk_cur_reg <= lrclk;
 
 				-- WAIT TILL THE FIRST CYCLE
-				if (lrclk_prev_reg = '0' and lrclk_cur_reg = '1' ) then
-					i2sRxStart  <= "10";
-				elsif (lrclk_prev_reg = '1' and lrclk_cur_reg = '0' ) then
+				IF (lrclk_prev_reg = '0' AND lrclk_cur_reg = '1') THEN
+					i2sRxStart <= "10";
+				ELSIF (lrclk_prev_reg = '1' AND lrclk_cur_reg = '0') THEN
 					i2sRxStart <= "01";
-				end if;
+				END IF;
 
 				-- capture data on rising SCLK
 				IF ((sclk_prev_reg = '0' AND sclk_cur_reg = '1') AND (i2sRxStart = "01")) THEN
