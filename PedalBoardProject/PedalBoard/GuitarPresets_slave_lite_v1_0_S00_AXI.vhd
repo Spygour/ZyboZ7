@@ -16,9 +16,9 @@ ENTITY GuitarPresets_slave_lite_v1_0_S00_AXI IS
 	);
 	PORT (
 		-- Users to add ports here
-		slv_reg0_out : OUT STD_LOGIC_VECTOR(31 downto 0);
-		slv_reg1_out : OUT STD_LOGIC_VECTOR(31 downto 0);
-		slv_reg2_out : OUT STD_LOGIC_VECTOR(31 downto 0);
+		slv_reg0_out : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+		slv_reg1_out : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+		slv_reg2_out : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
 		-- User ports ends
 		-- Do not modify the ports beyond this line
 

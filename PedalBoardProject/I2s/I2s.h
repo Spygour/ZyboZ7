@@ -1,6 +1,7 @@
 #ifndef I2S_H_
 #define I2S_H_
 #include <stdint.h>
+#include <stdbool.h>
 typedef enum
 {
     RAW_OUTPUT,
@@ -12,6 +13,7 @@ typedef enum
 
 typedef struct
 {
+    bool isStart;
     uint32_t normalizer;
     PedalBoard_DistMode_t mode;
     int32_t threshold_high;

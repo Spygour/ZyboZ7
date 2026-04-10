@@ -60,6 +60,7 @@ static PedalBoard_CFG2 PedalBoard_Cfg2Reg;
 static PedalBoard_CFG3 PedalBoard_Cfg3Reg;
 
 PedalBoard_Cfg_t PedalBoard_Cfg = {
+	false,
 	8,
 	RAW_OUTPUT,
 	0x7FFFFF,
@@ -132,6 +133,28 @@ static void PedalBoard_SetCompressor(uint32_t compressor)
 	PedalBoard_Cfg3Reg.B.compressor = (compressor & 0x7FFFFF); /* 23 BITS cause its signed in the hardware */
 }
 
+static void PedalBoard_Enable(void)
+{
+	PedalBoard_Cfg1Reg.B.EN0 = 1U;
+}
+
+static void PedalBoard_Disable(void)
+{
+	PedalBoard_Cfg1Reg.B.EN0 = 0U;
+}
+
+static void PedalBoard_IpInit(bool enable)
+{
+	if (enable)
+	{
+		PedalBoard_Enable();
+	}
+	else 
+	{
+		PedalBoard_Disable();
+	}
+}
+
 int PedalBoard_Init(void)
 {
 
@@ -145,7 +168,8 @@ int PedalBoard_Init(void)
 	PedalBoard_SetGain(PedalBoard_Cfg.gain);
 	PedalBoard_SetDistortionShift(PedalBoard_Cfg.shift_qubic);
 	PedalBoard_SetCompressor(PedalBoard_Cfg.compressor);
-	PedalBoard_Cfg1Reg.B.EN0 = 1U;
+	PedalBoard_Cfg.isStart = true;
+	PedalBoard_IpInit(PedalBoard_Cfg.isStart);
 	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG1_REG, PedalBoard_Cfg1Reg.U);
 	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG2_REG, PedalBoard_Cfg2Reg.U);
 	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG3_REG, PedalBoard_Cfg3Reg.U);
@@ -163,6 +187,7 @@ void PedalBoard_100ms(void)
 	PedalBoard_SetLowThreshold(PedalBoard_Cfg.threshold_low);
 	PedalBoard_SetGain(PedalBoard_Cfg.gain);
 	PedalBoard_SetCompressor(PedalBoard_Cfg.compressor);
+	PedalBoard_IpInit(PedalBoard_Cfg.isStart);
 	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG1_REG, PedalBoard_Cfg1Reg.U);
 	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG2_REG, PedalBoard_Cfg2Reg.U);
 	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG3_REG, PedalBoard_Cfg3Reg.U);

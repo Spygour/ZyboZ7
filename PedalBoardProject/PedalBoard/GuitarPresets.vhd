@@ -23,8 +23,8 @@ ENTITY GuitarPresets IS
 		i2s_lrclkPbac : OUT STD_LOGIC;
 		i2s_mclk : IN STD_LOGIC;
 		i2s_reset_n : IN STD_LOGIC;
-		i2s_dataIn : in std_logic;
-		i2s_mute : out std_logic;
+		i2s_dataIn : IN STD_LOGIC;
+		i2s_mute : OUT STD_LOGIC;
 		-- User ports ends
 		-- Do not modify the ports beyond this line
 		-- Ports of Axi Slave Bus Interface S00_AXI
@@ -62,13 +62,13 @@ ARCHITECTURE arch_imp OF GuitarPresets IS
 	SIGNAL s00_axi_slave_reg0 : STD_LOGIC_VECTOR(31 DOWNTO 0);
 	SIGNAL s00_axi_slave_reg1 : STD_LOGIC_VECTOR(31 DOWNTO 0);
 	SIGNAL s00_axi_slave_reg2 : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL axi_enableReg0Sync1 : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL axi_enableReg0Sync2 : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL axi_enableReg1Sync1 : STD_LOGIC_VECTOR(31 DOWNTO 0);
+	SIGNAL axi_enableReg0Sync1 : STD_LOGIC_VECTOR(31 DOWNTO 0);
+	SIGNAL axi_enableReg0Sync2 : STD_LOGIC_VECTOR(31 DOWNTO 0);
+	SIGNAL axi_enableReg1Sync1 : STD_LOGIC_VECTOR(31 DOWNTO 0);
 	SIGNAL axi_enableReg1Sync2 : STD_LOGIC_VECTOR(31 DOWNTO 0);
 	SIGNAL axi_enableReg2Sync1 : STD_LOGIC_VECTOR(31 DOWNTO 0);
 	SIGNAL axi_enableReg2Sync2 : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL axi_enableReg : STD_LOGIC;
+	SIGNAL axi_enableReg : STD_LOGIC;
 	SIGNAL axi_distortionShift : STD_LOGIC_VECTOR(6 DOWNTO 0);
 	SIGNAL axi_CompressorThreshold : STD_LOGIC_VECTOR(23 DOWNTO 0);
 
@@ -136,24 +136,24 @@ ARCHITECTURE arch_imp OF GuitarPresets IS
 		);
 	END COMPONENT I2sRx;
 	COMPONENT I2sTx IS
-  PORT (
-    sclk_out : INOUT STD_LOGIC;
-    lrclk_out : INOUT STD_LOGIC;
-    mclk : IN STD_LOGIC;
-    reset_n : IN STD_LOGIC;
-    sdata_out : OUT STD_LOGIC;
-    mute : OUT STD_LOGIC;
-    axis_stream_data_left : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
-    axis_stream_data_right : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
-    axis_fifo_full : IN STD_LOGIC;
-    axis_release_fifo : OUT STD_LOGIC;
-    axi_enableIpReg : IN STD_LOGIC;
-    axi_gain : IN STD_LOGIC_VECTOR(6 DOWNTO 0);
-    axi_threshold_high : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
-    axi_threshold_low : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
-    axi_overdrive : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-    axi_distShift : IN STD_LOGIC_VECTOR(6 DOWNTO 0);
-		axi_compThresh : IN STD_LOGIC_VECTOR(23 DOWNTO 0)
+		PORT (
+			sclk_out : INOUT STD_LOGIC;
+			lrclk_out : INOUT STD_LOGIC;
+			mclk : IN STD_LOGIC;
+			reset_n : IN STD_LOGIC;
+			sdata_out : OUT STD_LOGIC;
+			mute : OUT STD_LOGIC;
+			axis_stream_data_left : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
+			axis_stream_data_right : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
+			axis_fifo_full : IN STD_LOGIC;
+			axis_release_fifo : OUT STD_LOGIC;
+			axi_enableIpReg : IN STD_LOGIC;
+			axi_gain : IN STD_LOGIC_VECTOR(6 DOWNTO 0);
+			axi_threshold_high : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
+			axi_threshold_low : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
+			axi_overdrive : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+			axi_distShift : IN STD_LOGIC_VECTOR(6 DOWNTO 0);
+			axi_compThresh : IN STD_LOGIC_VECTOR(23 DOWNTO 0)
 		);
 	END COMPONENT I2sTx;
 BEGIN
@@ -252,17 +252,17 @@ BEGIN
 				axi_enableReg0Sync2 <= axi_enableReg0Sync1;
 				axi_enableReg <= axi_enableReg0Sync2(0);
 				axi_gainReg <= axi_enableReg0Sync2(7 DOWNTO 1);
-				axi_thresholdHigh <= axi_enableReg0Sync2(31 downto 8);
+				axi_thresholdHigh <= axi_enableReg0Sync2(31 DOWNTO 8);
 
 				axi_enableReg1Sync1 <= s00_axi_slave_reg1;
 				axi_enableReg1Sync2 <= axi_enableReg1Sync1;
-				axi_thresholdLow <= axi_enableReg1Sync2(23 downto 0);
-				axi_OverdriveReg <= axi_enableReg1Sync2(31 downto 24);
+				axi_thresholdLow <= axi_enableReg1Sync2(23 DOWNTO 0);
+				axi_OverdriveReg <= axi_enableReg1Sync2(31 DOWNTO 24);
 
 				axi_enableReg2Sync1 <= s00_axi_slave_reg2;
 				axi_enableReg2Sync2 <= axi_enableReg1Sync1;
-				axi_distortionShift <= axi_enableReg2Sync2(6 downto 0);
-				axi_CompressorThreshold <= axi_enableReg2Sync2(30 downto 7);
+				axi_distortionShift <= axi_enableReg2Sync2(6 DOWNTO 0);
+				axi_CompressorThreshold <= axi_enableReg2Sync2(30 DOWNTO 7);
 			END IF;
 		END IF;
 	END PROCESS;
@@ -271,6 +271,4 @@ BEGIN
 	i2s_lrclkRec <= lrclk_i2sTxReg;
 	i2s_lrclkPbac <= lrclk_i2sTxReg;
 	-- User logic ends
-	
-
 END arch_imp;
