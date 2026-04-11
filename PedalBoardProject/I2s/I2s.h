@@ -21,6 +21,8 @@ typedef struct
     uint8_t shift_qubic;
     int8_t gain;
     uint32_t compressor;
+    int8_t highpass;
+    int8_t lowpass;
 }PedalBoard_Cfg_t;
 
 extern int PedalBoard_Init(void);

@@ -7,5 +7,5 @@ This repository contains custom ips and their kernel/vitis code examples that ca
 | ConstraintsFiles         | Files that can be used as contraint files for synthesis on vivado |
 | HardwareLibraries      | Vhdl and Verilog files that you can use to make custom ips |
 | Kernel Modules  | Linux Kernel modules which uses the ips from HardwareLibraries |
-| PedalBoardProject       | Vitis code for custom i2s effects pedal ip (HardwareLibraries/PedalBoard) |
+| PedalBoardProject       | Vitis example code for the custom i2s effects pedal ip PedalBoardProject/Pedalboard |
 | UserSpace       | UserSpace projects on linux using the known ips and kernel modules |

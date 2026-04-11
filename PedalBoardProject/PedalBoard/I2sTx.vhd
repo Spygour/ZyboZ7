@@ -46,12 +46,15 @@ ENTITY I2sTx IS
     axis_fifo_full : IN STD_LOGIC;
     axis_release_fifo : OUT STD_LOGIC;
     axi_enableIpReg : IN STD_LOGIC;
-    axi_gain : IN STD_LOGIC_VECTOR(6 DOWNTO 0);
+    axi_gain : IN STD_LOGIC_VECTOR(5 DOWNTO 0);
+    axi_normalizer : IN STD_LOGIC_VECTOR(4 DOWNTO 0);
     axi_threshold_high : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
     axi_threshold_low : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
-    axi_overdrive : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
     axi_distShift : IN STD_LOGIC_VECTOR(6 DOWNTO 0);
-    axi_compThresh : IN STD_LOGIC_VECTOR(23 DOWNTO 0));
+    axi_compThresh : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
+    axi_highPassShift : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
+    axi_lowPassShift : IN STD_LOGIC_VECTOR(3 DOWNTO 0)
+    );
 END I2sTx;
 
 ARCHITECTURE Behavioral OF I2sTx IS
@@ -108,12 +111,14 @@ ARCHITECTURE Behavioral OF I2sTx IS
   SIGNAL sclk_cnt : INTEGER := 0;
 	SIGNAL lrclk_cnt : INTEGER := 0;
 
-  SIGNAL gain : unsigned(6 downto 0);
+  SIGNAL gain : unsigned(5 downto 0);
   SIGNAL threshold_high : signed(23 DOWNTO 0);
   SIGNAL threshold_low : signed(23 DOWNTO 0);
-  SIGNAL overdrive : signed(7 DOWNTO 0);
+  SIGNAL normalizer : unsigned(4 downto 0);
   SIGNAL distortion_shift : unsigned(6 downto 0);
   SIGNAL compressor_thresh : signed(23 downto 0);
+  SIGNAL lowPassShift : unsigned(3 downto 0);
+  SIGNAL highPassShift : unsigned(3 downto 0);
 
   -- HIGH PASS FILTER
   SIGNAL hp_input_lprev : signed(23 downto 0);
@@ -130,16 +135,15 @@ function hp_filter(
   x_current : signed(23 downto 0);
   x_prev : signed(23 downto 0);
   y_prev : signed(23 downto 0);
-  a_shift : integer;
-  a_big : std_logic
+  a_shift : unsigned(3 downto 0)
 ) return signed is
   variable temp : signed(31 downto 0);
   variable result : signed(23 downto 0);
 begin
-  if (a_big = '1') then
-    temp := resize(x_current, 32) - resize(x_prev,32) +  resize(y_prev, 32) - shift_right(resize(y_prev, 32), a_shift);
+  if (a_shift(3) = '1') then
+    temp := resize(x_current, 32) - resize(x_prev,32) +  resize(y_prev, 32) - shift_right(resize(y_prev, 32), to_integer(a_shift(2 downto 0)));
   else
-    temp := resize(x_current, 32) - resize(x_prev, 32) + shift_right(resize(y_prev, 32), a_shift);
+    temp := resize(x_current, 32) - resize(x_prev, 32) + shift_right(resize(y_prev, 32), to_integer(a_shift(2 downto 0)));
   end if;
   result := resize(temp, 24);
   return result;
@@ -149,16 +153,15 @@ end function;
 function lp_filter(
   x_current : signed(23 downto 0);
   y_prev : signed(23 downto 0);
-  a_shift : integer;
-  a_big : std_logic
+  a_shift : unsigned(3 downto 0)
 ) return signed is
   variable temp : signed(31 downto 0);
   variable result : signed(23 downto 0);
 begin
-  if (a_big = '1') then
-    temp := shift_right(resize(x_current, 32), a_shift) + resize(y_prev, 32) - shift_right(resize(y_prev, 32), a_shift);
+  if (a_shift(3) = '1') then
+    temp := shift_right(resize(x_current, 32), to_integer(a_shift(2 downto 0))) + resize(y_prev, 32) - shift_right(resize(y_prev, 32), to_integer(a_shift(2 downto 0)));
   else
-    temp := resize(x_current, 32) - shift_right(resize(x_current, 32), a_shift) + shift_right(resize(y_prev, 32), a_shift);
+    temp := resize(x_current, 32) - shift_right(resize(x_current, 32), to_integer(a_shift(2 downto 0))) + shift_right(resize(y_prev, 32), to_integer(a_shift(2 downto 0)));
   end if;
   result := resize(temp, 24);
   return result;
@@ -188,14 +191,14 @@ end function;
 -- FUZZY TYPE DISTORTION
 function apply_gain_clip(
     sample_input   : signed(23 downto 0); 
-    gain_input     : signed(7 downto 0);
+    gain_input     : unsigned(3 downto 0);
     threshold_high : signed(23 downto 0);
     threshold_low  : signed(23 downto 0);
     compThresh : signed(23 downto 0)
 ) return signed is
     variable result : signed(23 downto 0);
     variable compressed : signed(23 downto 0);
-    variable temp   : signed(31 downto 0); -- 29-bit temp
+    variable temp   : signed(39 downto 0); -- 29-bit temp
 begin
     -- multiply 24x5 -> 29 bits, resize to 29 for safety
     if (abs(sample_input) > compThresh) then
@@ -203,11 +206,11 @@ begin
     else
       compressed := sample_input + shift_right(sample_input, 1);
     end if;
-    temp := compressed * gain_input;
+    temp := shift_left(resize(compressed, 40), to_integer(gain_input));
     -- clipping
-    if temp > resize(threshold_high, 32) then
+    if temp > resize(threshold_high, 40) then
         result := threshold_high;
-    elsif temp < resize(threshold_low, 32) then
+    elsif temp < resize(threshold_low, 40) then
         result := threshold_low;
     else
         result := resize(temp, 24);
@@ -218,7 +221,7 @@ end function;
 -- SOFT CLIP DISTORTION
 function apply_soft_clip(
     sample_input   : signed(23 downto 0); 
-    K : signed(7 downto 0);
+    K : unsigned(3 downto 0);
     normalization : unsigned(4 downto 0);
     threshold_high : signed(23 downto 0);
     threshold_low  : signed(23 downto 0);
@@ -229,11 +232,11 @@ function apply_soft_clip(
     variable result : signed(23 downto 0);  -- 24 bit temp
     variable pregain : signed(23 downto 0);
     variable compressed : signed(23 downto 0);
-    variable temp : signed(31 downto 0);
-    variable temp1  : signed(31 downto 0);  -- 32 bit temp
-    variable temp2   : signed(63 downto 0); -- 64-bit temp
-    variable qubic_temp1 : signed(95 downto 0); -- 96 bit temp
-    variable qubic_temp2 : signed(95 downto 0);
+    variable temp : signed(39 downto 0);
+    variable temp1  : signed(39 downto 0);  -- 32 bit temp
+    variable temp2   : signed(79 downto 0); -- 64-bit temp
+    variable qubic_temp1 : signed(119 downto 0); -- 96 bit temp
+    variable qubic_temp2 : signed(119 downto 0);
     variable normalize : integer;
 begin
   -- calculate the normalization
@@ -245,23 +248,23 @@ begin
   end if;
   pregain := shift_left(compressed, 1);
   -- calculate the new sample gained and normalized
-  temp := pregain* K;
+  temp := shift_left(resize(pregain, 40), to_integer(K));
   temp1 := shift_right(temp, normalize);
   -- calculate norm * norm
   temp2 := temp1*temp1;
   -- calcualte the norm ^ 3
   qubic_temp1 := temp1*temp2;
   -- remove the qubic from the sample
-  qubic_temp2 := resize(temp1, 96) - shift_right(qubic_temp1, to_integer(qubic_shift));
+  qubic_temp2 := resize(temp1, 119) - shift_right(qubic_temp1, to_integer(qubic_shift));
   if (add_input = '1') then
-    qubic_temp2 := qubic_temp2 - shift_right(qubic_temp2, 3) + shift_right(resize(temp1,96), 3);
+    qubic_temp2 := shift_right(qubic_temp2, 1) + shift_right(resize(temp1,119), 1);
   end if;
   -- normalize back
   qubic_temp2 := shift_left(qubic_temp2, normalize);
   -- apply the thresholds
-  if (qubic_temp2 > resize(threshold_high, 96)) then
+  if (qubic_temp2 > resize(threshold_high, 119)) then
     result := threshold_high;
-  elsif (qubic_temp2 < resize(threshold_low, 96)) then
+  elsif (qubic_temp2 < resize(threshold_low, 119)) then
     result := threshold_low;
   else
     result := resize(qubic_temp2, 24);
@@ -275,10 +278,11 @@ BEGIN
   threshold_low <= signed(axi_threshold_low);
   gain <= unsigned(axi_gain);
   configReg <= axi_enableIpReg;
-  overdrive <= signed(axi_overdrive);
   distortion_shift <= unsigned(axi_distShift);
   compressor_thresh <= signed(axi_compThresh);
-
+  highPassShift <= unsigned(axi_highPassShift);
+  lowPassShift <= unsigned(axi_lowPassShift);
+  normalizer <= unsigned(axi_normalizer);
 	-- Add user logic here
 	PROCESS (mclk)
 	BEGIN
@@ -395,8 +399,8 @@ BEGIN
           IF (axis_fifo_full = '0') THEN
             if (gain(1 downto 0) = "01") then
                 -- APPLY HP FILTER
-                distortionData_Left := hp_filter(i2sRxData_Left, hp_input_lprev, hp_output_lprev, 4, '0');
-                distortionData_Right := hp_filter(i2sRxData_Right, hp_input_rprev, hp_output_rprev, 4, '0');
+                distortionData_Left := hp_filter(i2sRxData_Left, hp_input_lprev, hp_output_lprev, highPassShift);
+                distortionData_Right := hp_filter(i2sRxData_Right, hp_input_rprev, hp_output_rprev, highPassShift);
                 -- STORE PREVIOUS INPUT
                 hp_input_lprev <= i2sRxData_Left;
                 hp_input_rprev <= i2sRxData_Right;
@@ -404,18 +408,18 @@ BEGIN
                 hp_output_lprev <= distortionData_Left;
                 hp_output_rprev <= distortionData_Right;
                 -- APPLY SOFT CLIP
-                i2sRxData_Left := apply_soft_clip(distortionData_Left, overdrive, unsigned(gain(6 downto 2)), threshold_high, threshold_low, distortion_shift(6 downto 0), compressor_thresh, mix_input);
-                i2sRxData_Right := apply_soft_clip(distortionData_Right, overdrive, unsigned(gain(6 downto 2)), threshold_high, threshold_low, distortion_shift(6 downto 0), compressor_thresh, mix_input);
+                i2sRxData_Left := apply_soft_clip(distortionData_Left, unsigned(gain(5 downto 2)), normalizer, threshold_high, threshold_low, distortion_shift(6 downto 0), compressor_thresh, mix_input);
+                i2sRxData_Right := apply_soft_clip(distortionData_Right, unsigned(gain(5 downto 2)), normalizer, threshold_high, threshold_low, distortion_shift(6 downto 0), compressor_thresh, mix_input);
                 -- APPLY LP FILTER
-                distortionData_Left := lp_filter(i2sRxData_Left, lp_output_lprev, 5, '0');
-                distortionData_Right := lp_filter(i2sRxData_Right, lp_output_rprev, 5, '0');
+                distortionData_Left := lp_filter(i2sRxData_Left, lp_output_lprev, lowPassShift);
+                distortionData_Right := lp_filter(i2sRxData_Right, lp_output_rprev, lowPassShift);
                 lp_output_lprev <= distortionData_Left;
                 lp_output_rprev <= distortionData_Right;
                 i2sRx_dataLoc(to_integer(i2sRx_dataLocReadIdx))(0) <= std_logic_vector(distortionData_Left);
                 i2sRx_dataLoc(to_integer(i2sRx_dataLocReadIdx))(1) <= std_logic_vector(distortionData_Right);
             elsif ((gain(1 downto 0)  = "10") or (gain(1 downto 0)  = "11")) then
-                distortionData_Left := apply_gain_clip(i2sRxData_Left + lp_output_lprev, overdrive, threshold_high, threshold_low, compressor_thresh);
-                distortionData_Right := apply_gain_clip(i2sRxData_Right + lp_output_rprev, overdrive, threshold_high, threshold_low,  compressor_thresh);
+                distortionData_Left := apply_gain_clip(i2sRxData_Left + lp_output_lprev, unsigned(gain(5 downto 2)), threshold_high, threshold_low, compressor_thresh);
+                distortionData_Right := apply_gain_clip(i2sRxData_Right + lp_output_rprev, unsigned(gain(5 downto 2)), threshold_high, threshold_low,  compressor_thresh);
                 lp_output_lprev <= shift_right(distortionData_Left, 8);
                 lp_output_rprev <= shift_right(distortionData_Right, 8);
                 i2sRx_dataLoc(to_integer(i2sRx_dataLocReadIdx))(0) <= std_logic_vector(distortionData_Left);
@@ -465,8 +469,8 @@ BEGIN
           IF (axis_fifo_full = '0') THEN
             if (gain(1 downto 0) = "01") then
                 -- APPLY HP FILTER
-                distortionData_Left := hp_filter(i2sRxData_Left, hp_input_lprev, hp_output_lprev, 4, '0');
-                distortionData_Right := hp_filter(i2sRxData_Right, hp_input_rprev, hp_output_rprev, 4, '0');
+                distortionData_Left := hp_filter(i2sRxData_Left, hp_input_lprev, hp_output_lprev, highPassShift);
+                distortionData_Right := hp_filter(i2sRxData_Right, hp_input_rprev, hp_output_rprev, highPassShift);
                 -- STORE PREVIOUS INPUT
                 hp_input_lprev <= i2sRxData_Left;
                 hp_input_rprev <= i2sRxData_Right;
@@ -474,18 +478,18 @@ BEGIN
                 hp_output_lprev <= distortionData_Left;
                 hp_output_rprev <= distortionData_Right;
                 -- APPLY SOFT CLIP
-                i2sRxData_Left := apply_soft_clip(distortionData_Left, overdrive, unsigned(gain(6 downto 2)), threshold_high, threshold_low, distortion_shift(6 downto 0), compressor_thresh, mix_input);
-                i2sRxData_Right := apply_soft_clip(distortionData_Right, overdrive, unsigned(gain(6 downto 2)), threshold_high, threshold_low, distortion_shift(6 downto 0), compressor_thresh, mix_input);
+                i2sRxData_Left := apply_soft_clip(distortionData_Left, unsigned(gain(5 downto 2)), normalizer, threshold_high, threshold_low, distortion_shift(6 downto 0), compressor_thresh, mix_input);
+                i2sRxData_Right := apply_soft_clip(distortionData_Right, unsigned(gain(5 downto 2)), normalizer, threshold_high, threshold_low, distortion_shift(6 downto 0), compressor_thresh, mix_input);
                 -- APPLY LP FILTER
-                distortionData_Left := lp_filter(i2sRxData_Left, lp_output_lprev, 5, '0');
-                distortionData_Right := lp_filter(i2sRxData_Right, lp_output_rprev, 5, '0');
+                distortionData_Left := lp_filter(i2sRxData_Left, lp_output_lprev, lowPassShift);
+                distortionData_Right := lp_filter(i2sRxData_Right, lp_output_rprev, lowPassShift);
                 lp_output_lprev <= distortionData_Left;
                 lp_output_rprev <= distortionData_Right;
                 i2sRx_dataLoc(to_integer(i2sRx_dataLocReadIdx))(0) <= std_logic_vector(distortionData_Left);
                 i2sRx_dataLoc(to_integer(i2sRx_dataLocReadIdx))(1) <= std_logic_vector(distortionData_Right);
             elsif ((gain(1 downto 0)  = "10") or (gain(1 downto 0)  = "11")) then
-                distortionData_Left := apply_gain_clip(i2sRxData_Left + lp_output_lprev, overdrive, threshold_high, threshold_low, compressor_thresh);
-                distortionData_Right := apply_gain_clip(i2sRxData_Right + lp_output_rprev, overdrive, threshold_high, threshold_low,  compressor_thresh);
+                distortionData_Left := apply_gain_clip(i2sRxData_Left + lp_output_lprev, unsigned(gain(5 downto 2)), threshold_high, threshold_low, compressor_thresh);
+                distortionData_Right := apply_gain_clip(i2sRxData_Right + lp_output_rprev, unsigned(gain(5 downto 2)), threshold_high, threshold_low,  compressor_thresh);
                 lp_output_lprev <= shift_right(distortionData_Left, 8);
                 lp_output_rprev <= shift_right(distortionData_Right, 8);
                 i2sRx_dataLoc(to_integer(i2sRx_dataLocReadIdx))(0) <= std_logic_vector(distortionData_Left);

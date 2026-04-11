@@ -23,8 +23,8 @@ ENTITY GuitarPresets IS
 		i2s_lrclkPbac : OUT STD_LOGIC;
 		i2s_mclk : IN STD_LOGIC;
 		i2s_reset_n : IN STD_LOGIC;
-		i2s_dataIn : IN STD_LOGIC;
-		i2s_mute : OUT STD_LOGIC;
+		i2s_dataIn : in std_logic;
+		i2s_mute : out std_logic;
 		-- User ports ends
 		-- Do not modify the ports beyond this line
 		-- Ports of Axi Slave Bus Interface S00_AXI
@@ -62,21 +62,38 @@ ARCHITECTURE arch_imp OF GuitarPresets IS
 	SIGNAL s00_axi_slave_reg0 : STD_LOGIC_VECTOR(31 DOWNTO 0);
 	SIGNAL s00_axi_slave_reg1 : STD_LOGIC_VECTOR(31 DOWNTO 0);
 	SIGNAL s00_axi_slave_reg2 : STD_LOGIC_VECTOR(31 DOWNTO 0);
-	SIGNAL axi_enableReg0Sync1 : STD_LOGIC_VECTOR(31 DOWNTO 0);
-	SIGNAL axi_enableReg0Sync2 : STD_LOGIC_VECTOR(31 DOWNTO 0);
-	SIGNAL axi_enableReg1Sync1 : STD_LOGIC_VECTOR(31 DOWNTO 0);
+	SIGNAL s00_axi_slave_reg3 : STD_LOGIC_VECTOR(31 DOWNTO 0);
+	-- register 0 sync
+  SIGNAL axi_enableReg0Sync1 : STD_LOGIC_VECTOR(31 DOWNTO 0);
+  SIGNAL axi_enableReg0Sync2 : STD_LOGIC_VECTOR(31 DOWNTO 0);
+	-- register 1 sync
+  SIGNAL axi_enableReg1Sync1 : STD_LOGIC_VECTOR(31 DOWNTO 0);
 	SIGNAL axi_enableReg1Sync2 : STD_LOGIC_VECTOR(31 DOWNTO 0);
+	-- register 2 sync
 	SIGNAL axi_enableReg2Sync1 : STD_LOGIC_VECTOR(31 DOWNTO 0);
 	SIGNAL axi_enableReg2Sync2 : STD_LOGIC_VECTOR(31 DOWNTO 0);
-	SIGNAL axi_enableReg : STD_LOGIC;
+	-- register 3 sync
+	SIGNAL axi_enableReg3Sync1 : STD_LOGIC_VECTOR(31 DOWNTO 0);
+	SIGNAL axi_enableReg3Sync2 : STD_LOGIC_VECTOR(31 DOWNTO 0);
+
+	-- REGISTER 0
+  SIGNAL axi_enableReg : STD_LOGIC;
+	SIGNAL axi_gainReg : STD_LOGIC_VECTOR(5 DOWNTO 0);
+	SIGNAL axi_thresholdHigh : STD_LOGIC_VECTOR(23 DOWNTO 0);
+
+	-- REGISTER 1
+	SIGNAL axi_thresholdLow : STD_LOGIC_VECTOR(23 DOWNTO 0);
+	SIGNAL axi_highPass : std_logic_vector(3 downto 0);
+	SIGNAL axi_lowPass : std_logic_vector(3 downto 0);
+
+  -- REGISTER 2
 	SIGNAL axi_distortionShift : STD_LOGIC_VECTOR(6 DOWNTO 0);
 	SIGNAL axi_CompressorThreshold : STD_LOGIC_VECTOR(23 DOWNTO 0);
 
-	SIGNAL axi_gainReg : STD_LOGIC_VECTOR(6 DOWNTO 0);
-	SIGNAL axi_thresholdHigh : STD_LOGIC_VECTOR(23 DOWNTO 0);
-	SIGNAL axi_thresholdLow : STD_LOGIC_VECTOR(23 DOWNTO 0);
-	SIGNAL axi_OverdriveReg : STD_LOGIC_VECTOR(7 DOWNTO 0);
+  -- REGISTER 3
+ 	SIGNAL axi_norm : std_logic_vector(4 downto 0);
 
+	-- CLOCK REGISTERS
 	SIGNAL sclk_i2sTxreg : STD_LOGIC;
 	SIGNAL lrclk_i2sTxReg : STD_LOGIC;
 	-- component declaration
@@ -89,6 +106,7 @@ ARCHITECTURE arch_imp OF GuitarPresets IS
 			slv_reg0_out : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
 			slv_reg1_out : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
 			slv_reg2_out : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+			slv_reg3_out : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
 			S_AXI_ACLK : IN STD_LOGIC;
 			S_AXI_ARESETN : IN STD_LOGIC;
 			S_AXI_AWADDR : IN STD_LOGIC_VECTOR(C_S_AXI_ADDR_WIDTH - 1 DOWNTO 0);
@@ -136,25 +154,27 @@ ARCHITECTURE arch_imp OF GuitarPresets IS
 		);
 	END COMPONENT I2sRx;
 	COMPONENT I2sTx IS
-		PORT (
-			sclk_out : INOUT STD_LOGIC;
-			lrclk_out : INOUT STD_LOGIC;
-			mclk : IN STD_LOGIC;
-			reset_n : IN STD_LOGIC;
-			sdata_out : OUT STD_LOGIC;
-			mute : OUT STD_LOGIC;
-			axis_stream_data_left : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
-			axis_stream_data_right : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
-			axis_fifo_full : IN STD_LOGIC;
-			axis_release_fifo : OUT STD_LOGIC;
-			axi_enableIpReg : IN STD_LOGIC;
-			axi_gain : IN STD_LOGIC_VECTOR(6 DOWNTO 0);
-			axi_threshold_high : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
-			axi_threshold_low : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
-			axi_overdrive : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-			axi_distShift : IN STD_LOGIC_VECTOR(6 DOWNTO 0);
-			axi_compThresh : IN STD_LOGIC_VECTOR(23 DOWNTO 0)
-		);
+  PORT (
+    sclk_out : INOUT STD_LOGIC;
+    lrclk_out : INOUT STD_LOGIC;
+    mclk : IN STD_LOGIC;
+    reset_n : IN STD_LOGIC;
+    sdata_out : OUT STD_LOGIC;
+    mute : OUT STD_LOGIC;
+    axis_stream_data_left : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
+    axis_stream_data_right : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
+    axis_fifo_full : IN STD_LOGIC;
+    axis_release_fifo : OUT STD_LOGIC;
+    axi_enableIpReg : IN STD_LOGIC;
+    axi_gain : IN STD_LOGIC_VECTOR(5 DOWNTO 0);
+		axi_normalizer : IN STD_LOGIC_VECTOR(4 DOWNTO 0);
+    axi_threshold_high : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
+    axi_threshold_low : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
+    axi_distShift : IN STD_LOGIC_VECTOR(6 DOWNTO 0);
+	axi_compThresh : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
+    axi_highPassShift : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
+    axi_lowPassShift : IN STD_LOGIC_VECTOR(3 DOWNTO 0)
+    );
 	END COMPONENT I2sTx;
 BEGIN
 
@@ -168,6 +188,7 @@ BEGIN
 		slv_reg0_out => s00_axi_slave_reg0,
 		slv_reg1_out => s00_axi_slave_reg1,
 		slv_reg2_out => s00_axi_slave_reg2,
+		slv_reg3_out => s00_axi_slave_reg3,
 		S_AXI_ACLK => s00_axi_clk,
 		S_AXI_ARESETN => s00_axi_reset_n,
 		S_AXI_AWADDR => s00_axi_awaddr,
@@ -223,11 +244,13 @@ BEGIN
 		axis_release_fifo => s00_axis_release_fifo,
 		axi_enableIpReg => axi_enableReg,
 		axi_gain => axi_gainReg,
+		axi_normalizer => axi_norm,
 		axi_threshold_high => axi_thresholdHigh,
 		axi_threshold_low => axi_thresholdLow,
-		axi_overdrive => axi_OverdriveReg,
 		axi_distShift => axi_distortionShift,
-		axi_compThresh => axi_CompressorThreshold
+		axi_compThresh => axi_CompressorThreshold,
+		axi_highPassShift => axi_highPass,
+		axi_lowPassShift => axi_lowPass
 	);
 
 	PROCESS (i2s_mclk) IS
@@ -240,29 +263,38 @@ BEGIN
 				axi_enableReg1Sync2 <= (OTHERS => '0');
 				axi_enableReg2Sync1 <= (OTHERS => '0');
 				axi_enableReg2Sync2 <= (OTHERS => '0');
+				axi_enableReg3Sync1 <= (OTHERS => '0');
+				axi_enableReg3Sync2 <= (OTHERS => '0');
 				axi_gainReg <= (OTHERS => '0');
 				axi_thresholdHigh <= (OTHERS => '0');
 				axi_thresholdLow <= (OTHERS => '0');
 				axi_enableReg <= '0';
-				axi_OverdriveReg <= (OTHERS => '0');
 				axi_distortionShift <= (OTHERS => '0');
 				axi_CompressorThreshold <= (OTHERS => '0');
+				axi_highPass <= (others => '0');
+				axi_lowPass <= (OTHERS => '0');
+				axi_norm <= (OTHERS => '0');
 			ELSE
 				axi_enableReg0Sync1 <= s00_axi_slave_reg0;
 				axi_enableReg0Sync2 <= axi_enableReg0Sync1;
 				axi_enableReg <= axi_enableReg0Sync2(0);
-				axi_gainReg <= axi_enableReg0Sync2(7 DOWNTO 1);
-				axi_thresholdHigh <= axi_enableReg0Sync2(31 DOWNTO 8);
+				axi_gainReg <= axi_enableReg0Sync2(6 DOWNTO 1);
+				axi_thresholdHigh <= axi_enableReg0Sync2(31 downto 8);
 
 				axi_enableReg1Sync1 <= s00_axi_slave_reg1;
 				axi_enableReg1Sync2 <= axi_enableReg1Sync1;
-				axi_thresholdLow <= axi_enableReg1Sync2(23 DOWNTO 0);
-				axi_OverdriveReg <= axi_enableReg1Sync2(31 DOWNTO 24);
+				axi_thresholdLow <= axi_enableReg1Sync2(23 downto 0);
+				axi_highPass <= axi_enableReg1Sync2(27 downto 24);
+				axi_lowPass <= axi_enableReg1Sync2(31 downto 28);
 
 				axi_enableReg2Sync1 <= s00_axi_slave_reg2;
-				axi_enableReg2Sync2 <= axi_enableReg1Sync1;
-				axi_distortionShift <= axi_enableReg2Sync2(6 DOWNTO 0);
-				axi_CompressorThreshold <= axi_enableReg2Sync2(30 DOWNTO 7);
+				axi_enableReg2Sync2 <= axi_enableReg2Sync1;
+				axi_distortionShift <= axi_enableReg2Sync2(6 downto 0);
+				axi_CompressorThreshold <= axi_enableReg2Sync2(30 downto 7);
+
+				axi_enableReg3Sync1 <= s00_axi_slave_reg3;
+				axi_enableReg3Sync2 <= axi_enableReg3Sync1;
+				axi_norm <= axi_enableReg3Sync2(4 downto 0);
 			END IF;
 		END IF;
 	END PROCESS;
@@ -271,4 +303,6 @@ BEGIN
 	i2s_lrclkRec <= lrclk_i2sTxReg;
 	i2s_lrclkPbac <= lrclk_i2sTxReg;
 	-- User logic ends
+	
+
 END arch_imp;

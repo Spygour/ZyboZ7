@@ -13,6 +13,7 @@
 #define PEDALBOAD_CFG1_REG 0x0
 #define PEDALBOAD_CFG2_REG 0x4
 #define PEDALBOAD_CFG3_REG 0x8
+#define PEDALBOAD_CFG4_REG 0xC
 //XI2s_Tx I2s_TxDrv;
 //XI2s_Rx I2s_RxDrv;
 
@@ -20,14 +21,15 @@ typedef struct
 {
 	uint32_t EN0:1;
 	uint32_t mode:2;
-	uint32_t normalizer:5;
+	uint32_t gain:6;
 	uint32_t threshold_high:24;
-}Pedalboard_cfg_Bits;
+}Pedalboard_cfg1_Bits;
 
 typedef struct 
 {
 	uint32_t threshold_low:24;
-	uint32_t gain:8;
+	uint32_t high_pass:4;
+	uint32_t low_pass:4;
 }Pedalboard_cfg2_Bits;
 
 typedef struct 
@@ -37,10 +39,16 @@ typedef struct
 	uint32_t none:1;
 }Pedalboard_cfg3_Bits;
 
+typedef struct 
+{
+	uint32_t normalizer:5;
+	uint32_t none:27;
+}Pedalboard_cfg4_Bits;
+
 typedef union
 {
 	unsigned int U;
-	Pedalboard_cfg_Bits B;
+	Pedalboard_cfg1_Bits B;
 }PedalBoard_CFG1;
 
 typedef union
@@ -55,9 +63,16 @@ typedef union
 	Pedalboard_cfg3_Bits B;
 }PedalBoard_CFG3;
 
+typedef union
+{
+	unsigned int U;
+	Pedalboard_cfg4_Bits B;
+}PedalBoard_CFG4;
+
 static PedalBoard_CFG1 PedalBoard_Cfg1Reg;
 static PedalBoard_CFG2 PedalBoard_Cfg2Reg;
 static PedalBoard_CFG3 PedalBoard_Cfg3Reg;
+static PedalBoard_CFG4 PedalBoard_Cfg4Reg;
 
 PedalBoard_Cfg_t PedalBoard_Cfg = {
 	false,
@@ -67,7 +82,9 @@ PedalBoard_Cfg_t PedalBoard_Cfg = {
 	-0x800000,
 	2,
 	50,
-	0x400000
+	0x400000,
+	7,
+	3
 };
 
 static void PedalBoard_SetNormalization(uint32_t normalization)
@@ -76,7 +93,7 @@ static void PedalBoard_SetNormalization(uint32_t normalization)
 	{
 		normalization = 15;
 	}
-	PedalBoard_Cfg1Reg.B.normalizer = (uint32_t)(normalization & 0x1F);
+	PedalBoard_Cfg4Reg.B.normalizer = (uint32_t)(normalization & 0x1F);
 }
 
 static void PedalBoard_SetHighThreshold(int32_t threshold)
@@ -105,6 +122,32 @@ static void PedalBoard_SetLowThreshold(int32_t threshold)
 	PedalBoard_Cfg2Reg.B.threshold_low = (uint32_t)(threshold & 0xFFFFFF);
 }
 
+static void PedalBoard_SetHighPass(int8_t highpass)
+{
+	if (highpass > 0x7)
+	{
+		highpass = 0x7;
+	}
+	else if (highpass < -8)
+	{
+		highpass = -8;
+	}
+	PedalBoard_Cfg2Reg.B.high_pass = (uint32_t)highpass & 0xF;
+}
+
+static void PedalBoard_SetLowPass(int8_t lowpass)
+{
+	if (lowpass > 0x7)
+	{
+		lowpass = 0x7;
+	}
+	else if (lowpass < -8)
+	{
+		lowpass = -8;
+	}
+	PedalBoard_Cfg2Reg.B.low_pass = (uint32_t)lowpass & 0xF;
+}
+
 static void PedalBoard_SetGain(int8_t gain)
 {
 	if (gain > 127)
@@ -115,7 +158,7 @@ static void PedalBoard_SetGain(int8_t gain)
 	{
 		gain = -128;
 	}
-	PedalBoard_Cfg2Reg.B.gain = (uint32_t)(gain & 0xFF);
+	PedalBoard_Cfg1Reg.B.gain = (uint32_t)(gain & 0x3F);
 }
 
 static void PedalBoard_SetMode(PedalBoard_DistMode_t mode)
@@ -168,11 +211,14 @@ int PedalBoard_Init(void)
 	PedalBoard_SetGain(PedalBoard_Cfg.gain);
 	PedalBoard_SetDistortionShift(PedalBoard_Cfg.shift_qubic);
 	PedalBoard_SetCompressor(PedalBoard_Cfg.compressor);
+	PedalBoard_SetHighPass(PedalBoard_Cfg.highpass);
+	PedalBoard_SetLowPass(PedalBoard_Cfg.lowpass);
 	PedalBoard_Cfg.isStart = true;
 	PedalBoard_IpInit(PedalBoard_Cfg.isStart);
 	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG1_REG, PedalBoard_Cfg1Reg.U);
 	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG2_REG, PedalBoard_Cfg2Reg.U);
 	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG3_REG, PedalBoard_Cfg3Reg.U);
+	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG4_REG, PedalBoard_Cfg4Reg.U);
     /* Then enable the transmiter */
     //XI2s_Tx_Enable(&I2s_TxDrv, true);
 
@@ -187,8 +233,11 @@ void PedalBoard_100ms(void)
 	PedalBoard_SetLowThreshold(PedalBoard_Cfg.threshold_low);
 	PedalBoard_SetGain(PedalBoard_Cfg.gain);
 	PedalBoard_SetCompressor(PedalBoard_Cfg.compressor);
+	PedalBoard_SetHighPass(PedalBoard_Cfg.highpass);
+	PedalBoard_SetLowPass(PedalBoard_Cfg.lowpass);
 	PedalBoard_IpInit(PedalBoard_Cfg.isStart);
 	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG1_REG, PedalBoard_Cfg1Reg.U);
 	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG2_REG, PedalBoard_Cfg2Reg.U);
 	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG3_REG, PedalBoard_Cfg3Reg.U);
+	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG4_REG, PedalBoard_Cfg4Reg.U);
 }
