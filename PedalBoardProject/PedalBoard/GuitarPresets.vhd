@@ -92,6 +92,7 @@ ARCHITECTURE arch_imp OF GuitarPresets IS
 
   -- REGISTER 3
  	SIGNAL axi_norm : std_logic_vector(4 downto 0);
+	SIGNAL axi_phase : std_logic_vector(8 downto 0);
 
 	-- CLOCK REGISTERS
 	SIGNAL sclk_i2sTxreg : STD_LOGIC;
@@ -173,7 +174,8 @@ ARCHITECTURE arch_imp OF GuitarPresets IS
     axi_distShift : IN STD_LOGIC_VECTOR(6 DOWNTO 0);
 	axi_compThresh : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
     axi_highPassShift : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
-    axi_lowPassShift : IN STD_LOGIC_VECTOR(3 DOWNTO 0)
+    axi_lowPassShift : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
+    axi_phaseCtrl : IN STD_LOGIC_VECTOR(8 DOWNTO 0)
     );
 	END COMPONENT I2sTx;
 BEGIN
@@ -250,7 +252,8 @@ BEGIN
 		axi_distShift => axi_distortionShift,
 		axi_compThresh => axi_CompressorThreshold,
 		axi_highPassShift => axi_highPass,
-		axi_lowPassShift => axi_lowPass
+		axi_lowPassShift => axi_lowPass,
+		axi_phaseCtrl => axi_phase
 	);
 
 	PROCESS (i2s_mclk) IS
@@ -274,6 +277,7 @@ BEGIN
 				axi_highPass <= (others => '0');
 				axi_lowPass <= (OTHERS => '0');
 				axi_norm <= (OTHERS => '0');
+				axi_phase <= (OTHERS => '0');
 			ELSE
 				axi_enableReg0Sync1 <= s00_axi_slave_reg0;
 				axi_enableReg0Sync2 <= axi_enableReg0Sync1;
@@ -295,6 +299,7 @@ BEGIN
 				axi_enableReg3Sync1 <= s00_axi_slave_reg3;
 				axi_enableReg3Sync2 <= axi_enableReg3Sync1;
 				axi_norm <= axi_enableReg3Sync2(4 downto 0);
+				axi_phase <= axi_enableReg3Sync2(13 downto 5);
 			END IF;
 		END IF;
 	END PROCESS;
