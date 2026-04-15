@@ -16,10 +16,10 @@ PACKAGE I2sTypes IS
   TYPE phase_time_array_t IS ARRAY(0 TO PHASE_TIME_VARIANTS) OF unsigned(16 DOWNTO 0);
   TYPE phase_shift_array_t IS ARRAY (0 TO PHASE_NUM) OF unsigned(3 DOWNTO 0);
   CONSTANT IDLE_AXIS : unsigned(3 DOWNTO 0) := "0000";
-  CONSTANT WAIT_AXIS_FIFO_FULL_START : unsigned(3 DOWNTO 0) := "0001";
+  CONSTANT HIGH_PASS : unsigned(3 DOWNTO 0) := "0001";
   CONSTANT WAIT_FIFO_CLEAR : unsigned(3 DOWNTO 0) := "0010";
   CONSTANT WAIT_AXIS_FIFO_FULL : unsigned(3 DOWNTO 0) := "0011";
-  CONSTANT WAIT_STORE : unsigned(3 DOWNTO 0) := "0100";
+  CONSTANT CHECK_DISTORTION : unsigned(3 DOWNTO 0) := "0100";
   CONSTANT WAIT_RESTART : unsigned(3 DOWNTO 0) := "0101";
   CONSTANT PHASE_CYCLE_START : unsigned(3 DOWNTO 0) := "0110";
   CONSTANT PHASE_CYCLE : unsigned(3 DOWNTO 0) := "0111";
@@ -321,13 +321,13 @@ PACKAGE BODY I2sTypes IS
     IF (phase_cnt >= max_time) THEN
       phase_cnt := (OTHERS => '0');
       IF (dir = '0') THEN --increase
-        a_shift_idx := a_shift_idx + resize(a_shift_inc, 4);
+        a_shift_idx := a_shift_idx + resize(a_shift_inc, 4) + to_unsigned(1, 4); -- add extra increment
         IF (a_shift_idx >= max_idx) THEN
           a_shift_idx := max_idx;
           dir := '1'; -- start decreasing back
         END IF;
       ELSE --decrease
-        a_shift_idx := a_shift_idx - resize(a_shift_inc, 4);
+        a_shift_idx := a_shift_idx - resize(a_shift_inc, 4) - to_unsigned(1, 4); -- add extra decrement
         IF (a_shift_idx <= min_idx) OR (a_shift_idx > max_idx) THEN --oveflow happened
           a_shift_idx := min_idx;
           dir := '0'; --start increasing back

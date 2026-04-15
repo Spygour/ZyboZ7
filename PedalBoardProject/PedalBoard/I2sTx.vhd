@@ -218,124 +218,8 @@ BEGIN
             -- Stop the clearance of fifo , ready t get first data
             axis_release_fifo <= '0';
             mix_input := '1';
-            axis_control_state <= WAIT_AXIS_FIFO_FULL_START;
+            axis_control_state <= WAIT_AXIS_FIFO_FULL;
           END IF;
-
-          WHEN WAIT_AXIS_FIFO_FULL_START =>
-          IF (axis_fifo_full = '1') THEN
-            i2sRxData_Left := fir_filter(signed(axis_stream_data_left), left_channel_mem, FIR_COEFF, MEMORY_NUM);
-            i2sRxData_Right := fir_filter(signed(axis_stream_data_right), right_channel_mem, FIR_COEFF, MEMORY_NUM);
-            -- update the memory
-            FOR memory_index IN 0 TO (MEMORY_NUM - 2) LOOP
-              left_channel_mem(memory_index) <= left_channel_mem(memory_index + 1);
-              right_channel_mem(memory_index) <= right_channel_mem(memory_index + 1);
-            END LOOP;
-            left_channel_mem(MEMORY_NUM - 1) <= signed(axis_stream_data_left);
-            right_channel_mem(MEMORY_NUM - 1) <= signed(axis_stream_data_right);
-            -- release the fifo
-            axis_release_fifo <= '1';
-            axis_control_state <= WAIT_FIFO_CLEAR;
-          ELSIF (configReg = '0') THEN
-            -- Stop the clearance of fifo , ready t get first data
-            i2sRx_dataLoc <= (OTHERS => (OTHERS => (OTHERS => '0')));
-            i2sRx_dataLocReadIdx <= "0";
-            i2sTx_Enable <= '0';
-            axis_release_fifo <= '1';
-            axis_control_state <= IDLE_AXIS;
-          END IF;
-
-          WHEN WAIT_FIFO_CLEAR =>
-          IF (axis_fifo_full = '0') THEN
-            IF (gain(1 DOWNTO 0) = "01") THEN
-              -- APPLY HP FILTER
-              distortionData_Left := hp_filter(i2sRxData_Left, hp_input_lprev, hp_output_lprev, highPassShift);
-              distortionData_Right := hp_filter(i2sRxData_Right, hp_input_rprev, hp_output_rprev, highPassShift);
-              -- STORE PREVIOUS INPUT
-              hp_input_lprev <= i2sRxData_Left;
-              hp_input_rprev <= i2sRxData_Right;
-              -- STORE PREVIOUS OUTPUT
-              hp_output_lprev <= distortionData_Left;
-              hp_output_rprev <= distortionData_Right;
-              -- APPLY SOFT CLIP
-              i2sRxData_Left := apply_soft_clip(distortionData_Left, unsigned(gain(5 DOWNTO 2)), normalizer, threshold_high, threshold_low, distortion_shift(6 DOWNTO 0), compressor_thresh, mix_input);
-              i2sRxData_Right := apply_soft_clip(distortionData_Right, unsigned(gain(5 DOWNTO 2)), normalizer, threshold_high, threshold_low, distortion_shift(6 DOWNTO 0), compressor_thresh, mix_input);
-            ELSIF ((gain(1 DOWNTO 0) = "10") OR (gain(1 DOWNTO 0) = "11")) THEN
-              -- APPLY HP FILTER
-              distortionData_Left := hp_filter(i2sRxData_Left, hp_input_lprev, hp_output_lprev, highPassShift);
-              distortionData_Right := hp_filter(i2sRxData_Right, hp_input_rprev, hp_output_rprev, highPassShift);
-              -- STORE PREVIOUS INPUT
-              hp_input_lprev <= i2sRxData_Left;
-              hp_input_rprev <= i2sRxData_Right;
-              -- STORE PREVIOUS OUTPUT
-              hp_output_lprev <= distortionData_Left;
-              hp_output_rprev <= distortionData_Right;
-              -- APPLY gain filter
-              i2sRxData_Left := apply_gain_clip(distortionData_Left + lp_output_lprev, unsigned(gain(5 DOWNTO 2)), threshold_high, threshold_low, compressor_thresh);
-              i2sRxData_Right := apply_gain_clip(distortionData_Right + lp_output_rprev, unsigned(gain(5 DOWNTO 2)), threshold_high, threshold_low, compressor_thresh);
-              -- UPDATE THE FEEDBACK
-              lp_output_lprev <= shift_right(distortionData_Left, 8);
-              lp_output_rprev <= shift_right(distortionData_Right, 8);
-            ELSE
-              -- APPLY HP FILTER
-              distortionData_Left := hp_filter(i2sRxData_Left, hp_input_lprev, hp_output_lprev, highPassShift);
-              distortionData_Right := hp_filter(i2sRxData_Right, hp_input_rprev, hp_output_rprev, highPassShift);
-              -- STORE PREVIOUS INPUT
-              hp_input_lprev <= i2sRxData_Left;
-              hp_input_rprev <= i2sRxData_Right;
-              -- STORE PREVIOUS OUTPUT
-              hp_output_lprev <= distortionData_Left;
-              hp_output_rprev <= distortionData_Right;
-              -- STORE BACK THE VALUES
-              i2sRxData_Left := distortionData_Left;
-              i2sRxData_Right := distortionData_Right;
-            END IF;
-            -- set the fifo read to be full
-            axis_release_fifo <= '0';
-            axis_control_state <= LOW_PASS_START;
-          ELSIF (configReg = '0') THEN
-            -- Stop the clearance of fifo , ready t get first data
-            i2sRx_dataLoc <= (OTHERS => (OTHERS => (OTHERS => '0')));
-            i2sRx_dataLocReadIdx <= "0";
-            i2sTx_Enable <= '0';
-            axis_release_fifo <= '1';
-            axis_control_state <= IDLE_AXIS;
-          END IF;
-
-          WHEN LOW_PASS_START =>
-          -- APPLY LP FILTER
-          distortionData_Left := lp_filter(i2sRxData_Left, lp_output_lprev, lowPassShift);
-          distortionData_Right := lp_filter(i2sRxData_Right, lp_output_rprev, lowPassShift);
-          lp_output_lprev <= distortionData_Left;
-          lp_output_rprev <= distortionData_Right;
-          -- CHECK IF PHASE HERE
-          IF (phaseCtrl(0) = '1') THEN
-            update_phase(PhaseShift, phaseCtrl(2 DOWNTO 1), PhaseDirection, PhaseCnt,
-            PHASE_MIN_MAX_LUT(to_integer(phaseCtrl(5 DOWNTO 3)))(1), PHASE_MIN_MAX_LUT(to_integer(phaseCtrl(5 DOWNTO 3)))(0),
-            PHASE_TIME_ARRAY(to_integer(phaseCtrl(8 DOWNTO 6))) );
-          ELSE
-            PhaseDirection := '0';
-            PhaseCnt := (OTHERS => '0');
-            PhaseShift := to_unsigned(6, 4);
-          END IF;
-          axis_control_state <= PHASE_CYCLE_START;
-
-          WHEN PHASE_CYCLE_START =>
-          IF (phaseCtrl(0) = '1') THEN
-            i2sRxData_Left := ap_filter(distortionData_Left, ap_input_lprev, ap_output_lprev, PHASE_COEFF_ARRAY(to_integer(PhaseShift)));
-            i2sRxData_Right := ap_filter(distortionData_Right, ap_input_rprev, ap_output_rprev, PHASE_COEFF_ARRAY(to_integer(PhaseShift)));
-            ap_input_lprev <= distortionData_Left;
-            ap_input_rprev <= distortionData_Right;
-            ap_output_lprev <= i2sRxData_Left;
-            ap_output_rprev <= i2sRxData_Right;
-          ELSE
-            i2sRxData_Left := distortionData_Left;
-            i2sRxData_Right := distortionData_Right;
-          END IF;
-          -- STORE THE DATA
-          i2sRx_dataLoc(to_integer(i2sRx_dataLocReadIdx))(0) <= STD_LOGIC_VECTOR(i2sRxData_Left);
-          i2sRx_dataLoc(to_integer(i2sRx_dataLocReadIdx))(1) <= STD_LOGIC_VECTOR(i2sRxData_Right);
-          i2sRx_dataLocReadIdx <= i2sRx_dataLocReadIdx + 1;
-          axis_control_state <= WAIT_AXIS_FIFO_FULL;
 
           WHEN WAIT_AXIS_FIFO_FULL =>
           IF (axis_fifo_full = '1') THEN
@@ -351,7 +235,7 @@ BEGIN
             right_channel_mem(MEMORY_NUM - 1) <= signed(axis_stream_data_right);
             -- release the fifo
             axis_release_fifo <= '1';
-            axis_control_state <= WAIT_STORE;
+            axis_control_state <= HIGH_PASS;
           ELSIF (configReg = '0') THEN
             -- Stop the clearance of fifo , ready t get first data
             i2sRx_dataLoc <= (OTHERS => (OTHERS => (OTHERS => '0')));
@@ -361,9 +245,7 @@ BEGIN
             axis_control_state <= IDLE_AXIS;
           END IF;
 
-          WHEN WAIT_STORE =>
-          IF (axis_fifo_full = '0') THEN
-            IF (gain(1 DOWNTO 0) = "01") THEN
+          WHEN HIGH_PASS =>
               -- APPLY HP FILTER
               distortionData_Left := hp_filter(i2sRxData_Left, hp_input_lprev, hp_output_lprev, highPassShift);
               distortionData_Right := hp_filter(i2sRxData_Right, hp_input_rprev, hp_output_rprev, highPassShift);
@@ -373,19 +255,15 @@ BEGIN
               -- STORE PREVIOUS OUTPUT
               hp_output_lprev <= distortionData_Left;
               hp_output_rprev <= distortionData_Right;
+              axis_control_state <= CHECK_DISTORTION;
+
+          WHEN CHECK_DISTORTION =>
+          IF (axis_fifo_full = '0') THEN
+            IF (gain(1 DOWNTO 0) = "01") THEN
               -- APPLY SOFT CLIP
               i2sRxData_Left := apply_soft_clip(distortionData_Left, unsigned(gain(5 DOWNTO 2)), normalizer, threshold_high, threshold_low, distortion_shift(6 DOWNTO 0), compressor_thresh, mix_input);
               i2sRxData_Right := apply_soft_clip(distortionData_Right, unsigned(gain(5 DOWNTO 2)), normalizer, threshold_high, threshold_low, distortion_shift(6 DOWNTO 0), compressor_thresh, mix_input);
             ELSIF ((gain(1 DOWNTO 0) = "10") OR (gain(1 DOWNTO 0) = "11")) THEN
-              -- APPLY HP FILTER
-              distortionData_Left := hp_filter(i2sRxData_Left, hp_input_lprev, hp_output_lprev, highPassShift);
-              distortionData_Right := hp_filter(i2sRxData_Right, hp_input_rprev, hp_output_rprev, highPassShift);
-              -- STORE PREVIOUS INPUT
-              hp_input_lprev <= i2sRxData_Left;
-              hp_input_rprev <= i2sRxData_Right;
-              -- STORE PREVIOUS OUTPUT
-              hp_output_lprev <= distortionData_Left;
-              hp_output_rprev <= distortionData_Right;
               -- APPLY gain filter
               i2sRxData_Left := apply_gain_clip(distortionData_Left + lp_output_lprev, unsigned(gain(5 DOWNTO 2)), threshold_high, threshold_low, compressor_thresh);
               i2sRxData_Right := apply_gain_clip(distortionData_Right + lp_output_rprev, unsigned(gain(5 DOWNTO 2)), threshold_high, threshold_low, compressor_thresh);
@@ -393,20 +271,10 @@ BEGIN
               lp_output_lprev <= shift_right(distortionData_Left, 8);
               lp_output_rprev <= shift_right(distortionData_Right, 8);
             ELSE
-              -- APPLY HP FILTER
-              distortionData_Left := hp_filter(i2sRxData_Left, hp_input_lprev, hp_output_lprev, highPassShift);
-              distortionData_Right := hp_filter(i2sRxData_Right, hp_input_rprev, hp_output_rprev, highPassShift);
-              -- STORE PREVIOUS INPUT
-              hp_input_lprev <= i2sRxData_Left;
-              hp_input_rprev <= i2sRxData_Right;
-              -- STORE PREVIOUS OUTPUT
-              hp_output_lprev <= distortionData_Left;
-              hp_output_rprev <= distortionData_Right;
               -- STORE BACK THE VALUES
               i2sRxData_Left := distortionData_Left;
               i2sRxData_Right := distortionData_Right;
             END IF;
-            i2sTx_Enable <= '1';
             axis_release_fifo <= '0';
             axis_control_state <= LOW_PASS;
           ELSIF (configReg = '0') THEN
@@ -451,7 +319,13 @@ BEGIN
           -- STORE THE DATA
           i2sRx_dataLoc(to_integer(i2sRx_dataLocReadIdx))(0) <= STD_LOGIC_VECTOR(i2sRxData_Left);
           i2sRx_dataLoc(to_integer(i2sRx_dataLocReadIdx))(1) <= STD_LOGIC_VECTOR(i2sRxData_Right);
-          axis_control_state <= WAIT_RESTART;
+          if (i2sTx_Enable = '0') then --transmition didn't start yet
+            i2sRx_dataLocReadIdx <= i2sRx_dataLocReadIdx + 1; --its the first time so we increase straight
+            i2sTx_Enable <= '1'; --enable the transmition
+            axis_control_state <= WAIT_AXIS_FIFO_FULL;
+          else
+            axis_control_state <= WAIT_RESTART;
+          end if;
 
           WHEN WAIT_RESTART =>
           -- here we have reached the same data to be written
