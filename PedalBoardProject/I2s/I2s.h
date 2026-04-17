@@ -10,6 +10,13 @@ typedef enum
     FUZZY_COPY,
 }PedalBoard_DistMode_t;
 
+typedef struct
+{
+    bool enable;
+    uint8_t inc;
+    uint8_t max_value;
+    uint8_t max_time;
+}phase_cfg_t;
 
 typedef struct
 {
@@ -23,6 +30,7 @@ typedef struct
     uint32_t compressor;
     int8_t highpass;
     int8_t lowpass;
+    phase_cfg_t phaseCfg;
 }PedalBoard_Cfg_t;
 
 extern int PedalBoard_Init(void);

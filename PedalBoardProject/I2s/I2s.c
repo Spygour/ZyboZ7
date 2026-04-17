@@ -42,7 +42,11 @@ typedef struct
 typedef struct 
 {
 	uint32_t normalizer:5;
-	uint32_t none:27;
+	uint32_t phase_en:1;
+	uint32_t phaseInc:2;
+	uint32_t phaseMaxShift:3;
+	uint32_t phaseTime:3;
+	uint32_t none:18;
 }Pedalboard_cfg4_Bits;
 
 typedef union
@@ -75,16 +79,20 @@ static PedalBoard_CFG3 PedalBoard_Cfg3Reg;
 static PedalBoard_CFG4 PedalBoard_Cfg4Reg;
 
 PedalBoard_Cfg_t PedalBoard_Cfg = {
-	false,
-	8,
-	RAW_OUTPUT,
-	0x7FFFFF,
-	-0x800000,
-	2,
-	50,
-	0x400000,
-	7,
-	3
+	.isStart = false,
+	.normalizer = 8,
+	.mode = RAW_OUTPUT,
+	.threshold_high = 0x7FFFFF,
+	.threshold_low = -8388557,
+	.shift_qubic = 2,
+	.gain = 4,
+	.compressor = 0x4000, /* quite high for now */
+	.highpass = 2,
+	.lowpass = 9, 
+	.phaseCfg.enable = false,
+	.phaseCfg.inc = 1u,
+	.phaseCfg.max_time = 1u,
+	.phaseCfg.max_value = 4u
 };
 
 static void PedalBoard_SetNormalization(uint32_t normalization)
@@ -161,6 +169,14 @@ static void PedalBoard_SetGain(int8_t gain)
 	PedalBoard_Cfg1Reg.B.gain = (uint32_t)(gain & 0x3F);
 }
 
+static void PedalBoard_SetPhase(phase_cfg_t *phasecfg)
+{
+	PedalBoard_Cfg4Reg.B.phase_en = phasecfg->enable;
+	PedalBoard_Cfg4Reg.B.phaseInc = (uint32_t)(phasecfg->inc & 0x7);
+	PedalBoard_Cfg4Reg.B.phaseMaxShift = (uint32_t)(phasecfg->max_value & 0x7);
+	PedalBoard_Cfg4Reg.B.phaseTime = (uint32_t)(phasecfg->max_time & 0x7);
+}
+
 static void PedalBoard_SetMode(PedalBoard_DistMode_t mode)
 {
 	PedalBoard_Cfg1Reg.B.mode = (uint32_t)mode;
@@ -213,6 +229,7 @@ int PedalBoard_Init(void)
 	PedalBoard_SetCompressor(PedalBoard_Cfg.compressor);
 	PedalBoard_SetHighPass(PedalBoard_Cfg.highpass);
 	PedalBoard_SetLowPass(PedalBoard_Cfg.lowpass);
+	PedalBoard_SetPhase(&PedalBoard_Cfg.phaseCfg);
 	PedalBoard_Cfg.isStart = true;
 	PedalBoard_IpInit(PedalBoard_Cfg.isStart);
 	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG1_REG, PedalBoard_Cfg1Reg.U);
@@ -233,8 +250,10 @@ void PedalBoard_100ms(void)
 	PedalBoard_SetLowThreshold(PedalBoard_Cfg.threshold_low);
 	PedalBoard_SetGain(PedalBoard_Cfg.gain);
 	PedalBoard_SetCompressor(PedalBoard_Cfg.compressor);
+	PedalBoard_SetDistortionShift(PedalBoard_Cfg.shift_qubic);
 	PedalBoard_SetHighPass(PedalBoard_Cfg.highpass);
 	PedalBoard_SetLowPass(PedalBoard_Cfg.lowpass);
+	PedalBoard_SetPhase(&PedalBoard_Cfg.phaseCfg);
 	PedalBoard_IpInit(PedalBoard_Cfg.isStart);
 	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG1_REG, PedalBoard_Cfg1Reg.U);
 	Xil_Out32(XPAR_GUITARPRESETS_0_BASEADDR + PEDALBOAD_CFG2_REG, PedalBoard_Cfg2Reg.U);

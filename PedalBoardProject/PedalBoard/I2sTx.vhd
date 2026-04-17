@@ -207,7 +207,7 @@ BEGIN
         lp_output_lprev <= (OTHERS => '0');
         lp_output_rprev <= (OTHERS => '0');
         PhaseCnt := (OTHERS => '0');
-        PhaseShift := to_unsigned(6, 4);
+        PhaseShift := to_unsigned(0, 4);
         PhaseDirection := '0';
         mix_input := '0';
         axis_control_state <= IDLE_AXIS;
@@ -265,11 +265,8 @@ BEGIN
               i2sRxData_Right := apply_soft_clip(distortionData_Right, unsigned(gain(5 DOWNTO 2)), normalizer, threshold_high, threshold_low, distortion_shift(6 DOWNTO 0), compressor_thresh, mix_input);
             ELSIF ((gain(1 DOWNTO 0) = "10") OR (gain(1 DOWNTO 0) = "11")) THEN
               -- APPLY gain filter
-              i2sRxData_Left := apply_gain_clip(distortionData_Left + lp_output_lprev, unsigned(gain(5 DOWNTO 2)), threshold_high, threshold_low, compressor_thresh);
-              i2sRxData_Right := apply_gain_clip(distortionData_Right + lp_output_rprev, unsigned(gain(5 DOWNTO 2)), threshold_high, threshold_low, compressor_thresh);
-              -- UPDATE THE FEEDBACK
-              lp_output_lprev <= shift_right(distortionData_Left, 8);
-              lp_output_rprev <= shift_right(distortionData_Right, 8);
+              i2sRxData_Left := apply_gain_clip(distortionData_Left, unsigned(gain(5 DOWNTO 2)), threshold_high, threshold_low, compressor_thresh);
+              i2sRxData_Right := apply_gain_clip(distortionData_Right, unsigned(gain(5 DOWNTO 2)), threshold_high, threshold_low, compressor_thresh);
             ELSE
               -- STORE BACK THE VALUES
               i2sRxData_Left := distortionData_Left;
@@ -300,7 +297,7 @@ BEGIN
           ELSE
             PhaseDirection := '0';
             PhaseCnt := (OTHERS => '0');
-            PhaseShift := to_unsigned(6, 4);
+            PhaseShift := to_unsigned(0, 4);
           END IF;
           axis_control_state <= PHASE_CYCLE;
 

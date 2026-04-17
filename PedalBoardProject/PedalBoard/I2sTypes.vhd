@@ -40,29 +40,29 @@ PACKAGE I2sTypes IS
     to_unsigned(6400, 17)
   );
 
-  CONSTANT PHASE_COEFF_ARRAY : phase_shift_array_t := (
-   to_unsigned(0, 4),
-   to_unsigned(14, 4),
+  CONSTANT PHASE_COEFF_ARRAY : phase_shift_array_t := ( --from 0.9 to 0.5 
+   to_unsigned(14, 4), -- this is near 1
    to_unsigned(13, 4),
    to_unsigned(12, 4),
    to_unsigned(11, 4),
-   to_unsigned(10, 4), -- 5
-   to_unsigned(9, 4), -- this is the 0.5
-   to_unsigned(2, 4), -- 7
-   to_unsigned(3, 4), 
+   to_unsigned(10, 4),
+   to_unsigned(9, 4),
+   to_unsigned(7, 4),
+   to_unsigned(6, 4), 
+   to_unsigned(5, 4), 
    to_unsigned(4, 4),
-   to_unsigned(5, 4),
-   to_unsigned(6, 4),
-   to_unsigned(7, 4)
+   to_unsigned(3, 4),
+   to_unsigned(2, 4),
+   to_unsigned(1, 4) -- this is the 0.5
   );
 
   CONSTANT PHASE_MIN_MAX_LUT : phase_minmax_array_t := (
-  (to_unsigned(5, 4), to_unsigned(7, 4)),
-    (to_unsigned(4, 4), to_unsigned(8, 4)),
-    (to_unsigned(3, 4), to_unsigned(9, 4)),
-    (to_unsigned(2, 4), to_unsigned(10, 4)),
-    (to_unsigned(1, 4), to_unsigned(11, 4)),
-    (to_unsigned(0, 4), to_unsigned(12, 4)),
+  (to_unsigned(0, 4), to_unsigned(6, 4)),
+    (to_unsigned(0, 4), to_unsigned(7, 4)),
+    (to_unsigned(0, 4), to_unsigned(8, 4)),
+    (to_unsigned(0, 4), to_unsigned(9, 4)),
+    (to_unsigned(0, 4), to_unsigned(10, 4)),
+    (to_unsigned(0, 4), to_unsigned(11, 4)),
     (to_unsigned(0, 4), to_unsigned(12, 4))
   );
 
@@ -148,12 +148,14 @@ PACKAGE BODY I2sTypes IS
     a_shift : unsigned(3 DOWNTO 0)
   ) RETURN signed IS
     VARIABLE temp : signed(31 DOWNTO 0);
+    VARIABLE temp2 : signed(31 DOWNTO 0);
     VARIABLE result : signed(23 DOWNTO 0);
   BEGIN
+    temp2 := resize(x_current, 32) - resize(x_prev, 32);
     IF (a_shift(3) = '1') THEN
-      temp := resize(x_current, 32) - resize(x_prev, 32) + resize(y_prev, 32) - shift_right(resize(y_prev, 32), to_integer(a_shift(2 DOWNTO 0)));
+      temp := temp2 - shift_right(temp2,to_integer(a_shift(2 DOWNTO 0)))  + resize(y_prev, 32) - shift_right(resize(y_prev, 32), to_integer(a_shift(2 DOWNTO 0)));
     ELSE
-      temp := resize(x_current, 32) - resize(x_prev, 32) + shift_right(resize(y_prev, 32), to_integer(a_shift(2 DOWNTO 0)));
+      temp := shift_right(temp2,to_integer(a_shift(2 DOWNTO 0))) + shift_right(resize(y_prev, 32), to_integer(a_shift(2 DOWNTO 0))); --multiply both of them
     END IF;
     result := resize(temp, 24);
     RETURN result;
@@ -206,18 +208,11 @@ PACKAGE BODY I2sTypes IS
     a_shift : unsigned(3 DOWNTO 0)
   ) RETURN signed IS
     VARIABLE temp1 : signed(24 DOWNTO 0);
-    VARIABLE a_shift_abs : unsigned(3 downto 0);
     VARIABLE temp2 : signed(24 DOWNTO 0);
     VARIABLE result : signed(23 DOWNTO 0);
   BEGIN
     temp1 :=   resize(y_prev, 25) - resize(x_current,25);
-    a_shift_abs := a_shift;
-    if (a_shift(3) = '1') then --it is greater than 0.5
-      a_shift_abs(3) := '0'; --set the msb bit (sign) to be 0
-      temp2 := temp1 - shift_right(temp1, to_integer(a_shift_abs));
-    else
-      temp2 := shift_right(temp1, to_integer(a_shift_abs));
-    end if;
+    temp2 := temp1 - shift_right(temp1, to_integer(a_shift)); -- we want the filter to be much greater than 0.5 to work for phaser so its value - (vallue >> num) where num > 1
     temp2 := temp2 + resize(x_prev, 25);
     result := resize(temp2, 24);
     RETURN result;
@@ -233,7 +228,6 @@ PACKAGE BODY I2sTypes IS
   ) RETURN signed IS
     VARIABLE result : signed(23 DOWNTO 0);
     VARIABLE compressed : signed(23 DOWNTO 0);
-    VARIABLE temp : signed(39 DOWNTO 0); -- 29-bit temp
   BEGIN
     -- multiply 24x5 -> 29 bits, resize to 29 for safety
     IF (ABS(sample_input) > compThresh) THEN
@@ -241,14 +235,13 @@ PACKAGE BODY I2sTypes IS
     ELSE
       compressed := sample_input + shift_right(sample_input, 1);
     END IF;
-    temp := shift_left(resize(compressed, 40), to_integer(gain_input));
-    -- clipping
-    IF temp > resize(threshold_high, 40) THEN
+    compressed := shift_left(compressed, to_integer(gain_input));
+    IF compressed > threshold_high THEN
       result := threshold_high;
-    ELSIF temp < resize(threshold_low, 40) THEN
+    ELSIF compressed < threshold_low THEN
       result := threshold_low;
     ELSE
-      result := resize(temp, 24);
+      result := compressed;
     END IF;
     RETURN result;
   END FUNCTION;
